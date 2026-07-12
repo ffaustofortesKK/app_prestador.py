@@ -5,14 +5,14 @@ from supabase import create_client
 import requests
 from bs4 import BeautifulSoup
 
-# Configuração
+# Configuração do Supabase
 url = st.secrets["URL_SUPABASE"]
 key = st.secrets["KEY_SUPABASE"]
 supabase = create_client(url, key)
 
 st.set_page_config(page_title="Painel do Prestador", layout="centered")
 
-# --- ESTILO ---
+# --- ESTILO DARK MODE ---
 st.markdown("""
     <style>
     .stApp { background-color: #0e0e0e; }
@@ -21,7 +21,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- FUNÇÃO DE BUSCA ---
+# --- FUNÇÃO DE BUSCA NA NUVEM ---
 def buscar_musicas(termo):
     headers = {"User-Agent": "Mozilla/5.0"}
     url_base = "https://www.nephobox.com/portuguese/main?category=all&path=%2FKARAOKE"
@@ -58,9 +58,20 @@ else:
     # TELA DO PAINEL (LOGADO)
     st.title(f"🎤 Bem-vindo, {st.session_state['nome']}!")
     
+    # Gerar Link do Cliente
     slug = st.session_state["slug"]
     url_cliente = f"https://ffkaraoke-cliente.streamlit.app/?prestador={slug}"
     st.info(f"Link do cliente: {url_cliente}")
+
+    # Gerar QR Code
+    qr = qrcode.QRCode(version=1, box_size=10, border=5)
+    qr.add_data(url_cliente)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="white", back_color="#0e0e0e")
+    buf = BytesIO()
+    img.save(buf, format="PNG")
+    st.write("### Escaneie para pedir músicas:")
+    st.image(buf.getvalue(), width=200)
 
     # Interface de Busca
     st.markdown('<div class="big-box">', unsafe_allow_html=True)
@@ -68,7 +79,7 @@ else:
     termo = st.text_input("Nome da Música:")
     
     if st.button("Buscar na Biblioteca"):
-        with st.spinner('Procurando...'):
+        with st.spinner('Procurando na nuvem...'):
             st.session_state["resultados"] = buscar_musicas(termo)
     
     if "resultados" in st.session_state:
