@@ -5,62 +5,78 @@ from supabase import create_client
 import requests
 from bs4 import BeautifulSoup
 
-# ... (Mantenha o resto das suas configurações de Supabase e Estilo intactas)
+# Configuração
+url = st.secrets["URL_SUPABASE"]
+key = st.secrets["KEY_SUPABASE"]
+supabase = create_client(url, key)
 
-# --- FUNÇÃO DE BUSCA OTIMIZADA ---
+st.set_page_config(page_title="Painel do Prestador", layout="centered")
+
+# --- ESTILO ---
+st.markdown("""
+    <style>
+    .stApp { background-color: #0e0e0e; }
+    h1, h2, h3, p, label, div { color: #ffffff !important; }
+    .big-box { background-color: #1a1a1a; padding: 20px; border-radius: 10px; border: 1px solid #333; }
+    </style>
+""", unsafe_allow_html=True)
+
+# --- FUNÇÃO DE BUSCA ---
 def buscar_musicas(termo):
-    # O Nephobox exige que o cabeçalho pareça um navegador real
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-    }
+    headers = {"User-Agent": "Mozilla/5.0"}
     url_base = "https://www.nephobox.com/portuguese/main?category=all&path=%2FKARAOKE"
-    
     try:
         response = requests.get(url_base, headers=headers, timeout=10)
         soup = BeautifulSoup(response.content, 'html.parser')
-        
-        # O Nephobox costuma listar arquivos em tags específicas. 
-        # Vamos buscar todos os textos que possam ser nomes de músicas/arquivos
-        # Se o site usa JS, a lista pode estar dentro de um JSON escondido na página
-        resultados = []
-        # Tenta pegar elementos comuns de lista de arquivos
-        for item in soup.find_all(['a', 'div', 'span'], class_=lambda x: x and 'name' in x):
-            if termo.lower() in item.text.lower():
-                resultados.append(item.text.strip())
-        
-        # Se não encontrar nada via tags específicas, busca no texto puro da página
-        if not resultados:
-            texto_pagina = soup.get_text()
-            # Lógica simples para extrair linhas que contenham o termo
-            linhas = [l.strip() for l in texto_pagina.split('\n') if termo.lower() in l.lower()]
-            resultados = linhas
-            
-        return list(set(resultados[:10])) if resultados else ["Nenhuma música encontrada (Verifique se o site requer login)."]
+        resultados = [item.text.strip() for item in soup.find_all(['a', 'div', 'span']) if termo.lower() in item.text.lower()]
+        return list(set(resultados[:10])) if resultados else ["Nenhuma música encontrada."]
     except Exception as e:
-        return [f"Erro ao acessar a nuvem: {e}"]
+        return [f"Erro: {e}"]
 
-# --- PAINEL (Onde a busca acontece) ---
+# Inicializar sessão
+if "prestador_id" not in st.session_state:
+    st.session_state["prestador_id"] = None
+
+# --- FLUXO PRINCIPAL ---
+if st.session_state["prestador_id"] is None:
+    # TELA DE LOGIN
+    st.title("🎤 Portal do Prestador")
+    nome = st.text_input("Nome de Usuário:")
+    senha = st.text_input("Senha:", type="password")
+    
+    if st.button("Entrar"):
+        res = supabase.table("prestadores").select("*").eq("nome_prestador", nome).eq("senha_acesso", senha).execute()
+        if res.data:
+            st.session_state["prestador_id"] = res.data[0]["id"]
+            st.session_state["nome"] = res.data[0]["nome_prestador"]
+            st.session_state["slug"] = res.data[0]["slug_unico"]
+            st.rerun()
+        else:
+            st.error("Credenciais inválidas!")
+
 else:
+    # TELA DO PAINEL (LOGADO)
     st.title(f"🎤 Bem-vindo, {st.session_state['nome']}!")
     
-    # ... (Seu código de Link e QR Code aqui)
+    slug = st.session_state["slug"]
+    url_cliente = f"https://ffkaraoke-cliente.streamlit.app/?prestador={slug}"
+    st.info(f"Link do cliente: {url_cliente}")
 
-    # Interface de Busca e Adição
+    # Interface de Busca
     st.markdown('<div class="big-box">', unsafe_allow_html=True)
     st.subheader("🔍 Pesquisar na Nuvem")
     termo = st.text_input("Nome da Música:")
     
-    # Botão de busca com estado
     if st.button("Buscar na Biblioteca"):
-        with st.spinner('Procurando na nuvem...'):
+        with st.spinner('Procurando...'):
             st.session_state["resultados"] = buscar_musicas(termo)
     
-    # Exibir resultados
     if "resultados" in st.session_state:
-        selecionada = st.selectbox("Selecione a música desejada:", st.session_state["resultados"])
+        selecionada = st.selectbox("Selecione a música:", st.session_state["resultados"])
         if st.button("Adicionar à Lista"):
-            st.success(f"Adicionando: {selecionada}...")
-            # Aqui você inseriria no Supabase
+            st.success(f"Adicionado: {selecionada}")
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # ... (Resto do código)
+    if st.button("Sair"):
+        st.session_state["prestador_id"] = None
+        st.rerun()
