@@ -40,43 +40,34 @@ if st.session_state["prestador_id"] is None:
 
 # --- PAINEL (APÓS LOGIN) ---
 else:
-    st.markdown(f"## 🎤 Bem-vindo, {st.session_state['nome']}!")
+    st.title(f"🎤 Bem-vindo, {st.session_state['nome']}!")
     
-    # Gerar link personalizado
+    # 1. Link e QR Code (funciona garantido)
     slug = st.session_state["slug"]
     url_cliente = f"https://ffkaraoke-cliente.streamlit.app/?prestador={slug}"
+    st.info(f"Link do seu cliente: {url_cliente}")
     
-    st.success(f"Seu link personalizado: {url_cliente}")
+    # 2. Interface de Pedidos (Simplificada sem HTML)
+    with st.expander("➕ Adicionar Música", expanded=True):
+        nome_cantor = st.text_input("Nome do Cantor:")
+        musica = st.text_input("Nome da Música:")
+        if st.button("Adicionar à Lista"):
+            st.success("Adicionado!")
+
+    # 3. Fila de Reprodução
+    st.subheader("Fila de Reprodução:")
+    # Aqui entraria a lógica de exibir a lista do banco
     
-    # Gerar QR Code
-    qr = qrcode.make(url_cliente)
-    buf = BytesIO()
-    qr.save(buf, format="PNG")
-    st.image(buf.getvalue(), caption="QR Code para seus clientes")
-
-    # Interface Visual
-    st.markdown('<div class="big-box">', unsafe_allow_html=True)
-    nome_cantor = st.text_input("Nome do Cantor:")
-    musica = st.text_input("Nome da Música:")
-    if st.button("★ ADICIONAR À LISTA LOCAL", use_container_width=True):
-        st.success("Música adicionada!")
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    st.subheader("FILA DE REPRODUÇÃO ATUAL:")
     col1, col2, col3 = st.columns(3)
-    col1.button("↑ Subir")
-    col2.button("↓ Descer")
-    col3.button("🗑️ Remover")
-    
-    st.button("▶ ANUNCIAR PRÓXIMO CANTOR", use_container_width=True, type="primary")
+    col1.button("Subir")
+    col2.button("Descer")
+    col3.button("Remover")
 
-    # Área Cloud
-    st.markdown('<div class="sintonia-box">', unsafe_allow_html=True)
-    st.write("### SISTEMA EM SINTONIA CLOUD")
+    # 4. Sintonia Cloud
+    st.warning("### SISTEMA EM SINTONIA CLOUD")
     c1, c2 = st.columns(2)
-    c1.button("✅ Validar", use_container_width=True)
-    c2.button("🗑️ Recusar", use_container_width=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+    c1.button("Validar")
+    c2.button("Recusar")
 
     if st.button("Sair"):
         st.session_state["prestador_id"] = None
