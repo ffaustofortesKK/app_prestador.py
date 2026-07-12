@@ -3,24 +3,15 @@ import qrcode
 from io import BytesIO
 from supabase import create_client
 
-# Configuração do Supabase
+# Configuração
 url = st.secrets["URL_SUPABASE"]
 key = st.secrets["KEY_SUPABASE"]
 supabase = create_client(url, key)
 
 st.set_page_config(page_title="Painel do Prestador", layout="centered")
 
-# Inicializar sessão
 if "prestador_id" not in st.session_state:
     st.session_state["prestador_id"] = None
-
-# --- ESTILIZAÇÃO CSS ---
-st.markdown("""
-    <style>
-    .big-box { background-color: #1a1a1a; padding: 20px; border-radius: 10px; border: 1px solid #333; color: white; }
-    .sintonia-box { background-color: #260000; padding: 15px; border-radius: 5px; border: 1px solid #ff4b4b; color: white; }
-    </style>
-""", unsafe_allow_html=True)
 
 # --- LOGIN ---
 if st.session_state["prestador_id"] is None:
@@ -38,32 +29,31 @@ if st.session_state["prestador_id"] is None:
         else:
             st.error("Credenciais inválidas!")
 
-# --- PAINEL (APÓS LOGIN) ---
+# --- PAINEL ---
 else:
     st.title(f"🎤 Bem-vindo, {st.session_state['nome']}!")
     
-    # 1. Link e QR Code (funciona garantido)
+    # Link e QR Code
     slug = st.session_state["slug"]
     url_cliente = f"https://ffkaraoke-cliente.streamlit.app/?prestador={slug}"
-    st.info(f"Link do seu cliente: {url_cliente}")
+    st.info(f"Link do cliente: {url_cliente}")
     
-    # 2. Interface de Pedidos (Simplificada sem HTML)
+    # Interface de Pedidos
     with st.expander("➕ Adicionar Música", expanded=True):
         nome_cantor = st.text_input("Nome do Cantor:")
         musica = st.text_input("Nome da Música:")
-        if st.button("Adicionar à Lista"):
+        if st.button("Adicionar"):
             st.success("Adicionado!")
 
-    # 3. Fila de Reprodução
-    st.subheader("Fila de Reprodução:")
-    # Aqui entraria a lógica de exibir a lista do banco
+    # Fila (Renomeado para evitar o erro de ancoragem do link)
+    st.markdown("### Fila de Reprodução")
     
     col1, col2, col3 = st.columns(3)
     col1.button("Subir")
     col2.button("Descer")
     col3.button("Remover")
 
-    # 4. Sintonia Cloud
+    # Sistema Cloud
     st.warning("### SISTEMA EM SINTONIA CLOUD")
     c1, c2 = st.columns(2)
     c1.button("Validar")
