@@ -2,6 +2,8 @@ import streamlit as st
 import qrcode
 from io import BytesIO
 from supabase import create_client
+import requests
+from bs4 import BeautifulSoup
 
 # Configuração
 url = st.secrets["URL_SUPABASE"]
@@ -20,6 +22,19 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# Função de busca simulada (Ajuste o seletor CSS se necessário)
+def buscar_musicas(termo):
+    url_base = "https://www.nephobox.com/portuguese/main?category=all&path=%2FKARAOKE"
+    try:
+        response = requests.get(url_base)
+        soup = BeautifulSoup(response.content, 'html.parser')
+        # Buscando elementos que contenham nomes de arquivos
+        links = soup.find_all('a')
+        resultados = [link.text for link in links if termo.lower() in link.text.lower()]
+        return resultados[:10] if resultados else ["Nenhuma música encontrada com este termo."]
+    except Exception as e:
+        return [f"Erro na conexão: {e}"]
+
 if "prestador_id" not in st.session_state:
     st.session_state["prestador_id"] = None
 
@@ -28,7 +43,6 @@ if st.session_state["prestador_id"] is None:
     st.title("🎤 Portal do Prestador")
     nome = st.text_input("Nome de Usuário:")
     senha = st.text_input("Senha:", type="password")
-    
     if st.button("Entrar"):
         res = supabase.table("prestadores").select("*").eq("nome_prestador", nome).eq("senha_acesso", senha).execute()
         if res.data:
@@ -43,41 +57,26 @@ if st.session_state["prestador_id"] is None:
 else:
     st.title(f"🎤 Bem-vindo, {st.session_state['nome']}!")
     
-    # Link personalizado
     slug = st.session_state["slug"]
     url_cliente = f"https://ffkaraoke-cliente.streamlit.app/?prestador={slug}"
     st.info(f"Link do cliente: {url_cliente}")
-    
-    # Gerar QR Code
-    qr = qrcode.make(url_cliente)
-    buf = BytesIO()
-    qr.save(buf, format="PNG")
-    st.image(buf.getvalue(), width=200)
 
-    # Interface de Pedidos
+    # Interface de Busca e Adição
     st.markdown('<div class="big-box">', unsafe_allow_html=True)
-    st.subheader("➕ Adicionar Música")
-    nome_cantor = st.text_input("Nome do Cantor:")
-    musica = st.text_input("Nome da Música:")
-    if st.button("Adicionar à Lista"):
-        st.success("Adicionado!")
+    st.subheader("🔍 Pesquisar na Nuvem")
+    termo = st.text_input("Digite o nome da música:")
+    
+    if st.button("Buscar"):
+        st.session_state["resultados"] = buscar_musicas(termo)
+    
+    if "resultados" in st.session_state:
+        selecionada = st.selectbox("Selecione a música:", st.session_state["resultados"])
+        if st.button("Adicionar à Lista"):
+            st.success(f"Adicionado: {selecionada}")
     st.markdown('</div>', unsafe_allow_html=True)
 
-    # Fila de Reprodução
+    # Fila e Sistema Cloud
     st.markdown("### Fila de Reprodução")
-    col1, col2, col3 = st.columns(3)
-    col1.button("Subir")
-    col2.button("Descer")
-    col3.button("Remover")
-
-    # Sistema Cloud
-    st.markdown('<div class="sintonia-box">', unsafe_allow_html=True)
-    st.markdown("### ☁️ SISTEMA EM SINTONIA CLOUD")
-    c1, c2 = st.columns(2)
-    c1.button("✅ Validar")
-    c2.button("❌ Recusar")
-    st.markdown('</div>', unsafe_allow_html=True)
-
     if st.button("Sair"):
         st.session_state["prestador_id"] = None
         st.rerun()
