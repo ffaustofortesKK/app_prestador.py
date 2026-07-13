@@ -5,7 +5,7 @@ from supabase import create_client
 import requests
 from bs4 import BeautifulSoup
 
-# Configuração do Supabase
+# Configuração do Supabase (Usar st.secrets)
 url = st.secrets["URL_SUPABASE"]
 key = st.secrets["KEY_SUPABASE"]
 supabase = create_client(url, key)
@@ -55,7 +55,7 @@ else:
     st.title(f"Bem-vindo, {st.session_state['nome']}!")
     slug = st.session_state["slug"]
     
-    # 1. LINK E QR CODE (O Elo de Ligação)
+    # 1. LINK E QR CODE
     url_cliente = f"https://ffkaraoke-cliente.streamlit.app/?prestador={slug}"
     st.info(f"Link de acesso para seus clientes:")
     st.code(url_cliente)
@@ -67,7 +67,7 @@ else:
 
     st.divider()
 
-    # 2. FILA DE PEDIDOS (Conexão Firebase)
+    # 2. FILA DE PEDIDOS
     st.subheader("📋 Pedidos Recebidos")
     url_fila = f"https://grupoffkaraoke-default-rtdb.firebaseio.com/pedidos_{slug}.json"
     if st.button("🔄 Atualizar Fila"):
@@ -82,7 +82,7 @@ else:
         except:
             st.error("Erro ao buscar fila.")
 
-    # 3. BUSCA NA NUVEM
+    # 3. BUSCA
     st.markdown('<div class="big-box">', unsafe_allow_html=True)
     st.subheader("🔍 Pesquisar na Nuvem")
     termo = st.text_input("Nome da Música:")
@@ -91,7 +91,7 @@ else:
     
     if "resultados" in st.session_state:
         selecionada = st.selectbox("Resultado:", st.session_state["resultados"])
-        st.info(f"Música selecionada para o cliente: {selecionada}")
+        st.info(f"Música selecionada: {selecionada}")
     st.markdown('</div>', unsafe_allow_html=True)
 
     if st.button("Sair"):
