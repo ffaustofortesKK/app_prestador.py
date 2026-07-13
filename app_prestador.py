@@ -27,7 +27,7 @@ if st.session_state.prestador_id is None:
                 # 1. Tenta buscar pelo telefone
                 res = supabase.table("prestadores").select("*").eq("telefone", telef).execute()
                 
-                if res.data:
+                if res.data and len(res.data) > 0:
                     # Login
                     st.session_state.update({
                         "prestador_id": res.data[0]["id"],
@@ -37,30 +37,34 @@ if st.session_state.prestador_id is None:
                     st.rerun()
                 else:
                     # 2. Cadastro automático
+                    # Criamos um slug limpo (sem espaços)
                     slug_novo = f"{nome.lower()}-{sobrenomo.lower()}"
                     
-                    # ATENÇÃO: Verifique se o nome da coluna no Supabase é 'sobrenomo' ou 'sobrenome'
-                    # Se o erro PGRST204 persistir, troque a chave abaixo pelo nome que estiver no painel.
                     novo_prestador = {
                         "nome": nome,
-                        "sobrenomo": sobrenomo, 
+                        "sobrenomo": sobrenomo,
                         "telefone": telef,
                         "slug_unico": slug_novo
                     }
                     
+                    # Tenta inserir
                     supabase.table("prestadores").insert(novo_prestador).execute()
                     
                     # Busca o ID após inserir
                     res = supabase.table("prestadores").select("*").eq("telefone", telef).execute()
-                    st.session_state.update({
-                        "prestador_id": res.data[0]["id"],
-                        "nome": f"{nome} {sobrenomo}",
-                        "slug": slug_novo
-                    })
-                    st.success("Cadastro realizado com sucesso!")
-                    st.rerun()
+                    
+                    if res.data:
+                        st.session_state.update({
+                            "prestador_id": res.data[0]["id"],
+                            "nome": f"{nome} {sobrenomo}",
+                            "slug": slug_novo
+                        })
+                        st.success("Cadastro realizado com sucesso!")
+                        st.rerun()
+                    else:
+                        st.error("Erro ao confirmar o cadastro no banco.")
             except Exception as e:
-                st.error(f"Erro no banco de dados (Verifique o nome das colunas): {e}")
+                st.error(f"Erro ao comunicar com o banco: {e}")
         else:
             st.error("⚠️ Por favor, preencha todos os campos.")
 
