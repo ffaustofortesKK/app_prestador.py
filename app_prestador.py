@@ -31,18 +31,18 @@ if st.session_state.prestador_id is None:
                     # Login
                     st.session_state.update({
                         "prestador_id": res.data[0]["id"],
-                        "nome": f"{nome} {sobrenomo}",
+                        "nome": f"{nome} {sobrenome}",
                         "slug": res.data[0]["slug_unico"]
                     })
                     st.rerun()
                 else:
                     # 2. Cadastro automático
                     # Criamos um slug limpo (sem espaços)
-                    slug_novo = f"{nome.lower()}-{sobrenomo.lower()}"
+                    slug_novo = f"{nome.lower()}-{sobrenome.lower()}"
                     
                     novo_prestador = {
                         "nome": nome,
-                        "sobrenomo": sobrenomo,
+                        "sobrenome": sobrenome,
                         "telefone": telef,
                         "slug_unico": slug_novo
                     }
@@ -56,7 +56,7 @@ if st.session_state.prestador_id is None:
                     if res.data:
                         st.session_state.update({
                             "prestador_id": res.data[0]["id"],
-                            "nome": f"{nome} {sobrenomo}",
+                            "nome": f"{nome} {sobrenome}",
                             "slug": slug_novo
                         })
                         st.success("Cadastro realizado com sucesso!")
