@@ -17,49 +17,50 @@ if "prestador_id" not in st.session_state: st.session_state.prestador_id = None
 if st.session_state.prestador_id is None:
     st.title("🎤 Portal do Prestador")
     
-    # Campos obrigatórios
     nome = st.text_input("Nome:")
-    sobrenome = st.text_input("Sobrenome:")
+    sobrenomo = st.text_input("Sobrenome:") # Corrigido conforme sua lista
     telef = st.text_input("Telefone:")
     
     if st.button("Entrar"):
-        # Validação de preenchimento obrigatório
-        if nome and sobrenome and telef:
-            # 1. Tenta buscar o prestador pelo telefone
-            res = supabase.table("prestadores").select("*").eq("telefone", telef).execute()
-            
-            if res.data:
-                # Prestador existe, faz login
-                st.session_state.update({
-                    "prestador_id": res.data[0]["id"],
-                    "nome": f"{nome} {sobrenome}",
-                    "slug": res.data[0]["slug_unico"]
-                })
-                st.rerun()
-            else:
-                # 2. Prestador não existe, cria novo registro automaticamente
-                slug_novo = f"{nome.lower()}-{sobrenome.lower()}"
-                novo_prestador = {
-                    "nome_prestador": f"{nome} {sobrenome}",
-                    "telefone": telef,
-                    "slug_unico": slug_novo
-                }
+        if nome and sobrenomo and telef:
+            try:
+                # 1. Tenta buscar pelo telefone
+                res = supabase.table("prestadores").select("*").eq("telefone", telef).execute()
                 
-                try:
-                    insert_res = supabase.table("prestadores").insert(novo_prestador).execute()
-                    # Após criar, busca o ID gerado
+                if res.data:
+                    # Login
+                    st.session_state.update({
+                        "prestador_id": res.data[0]["id"],
+                        "nome": f"{nome} {sobrenomo}",
+                        "slug": res.data[0]["slug_unico"]
+                    })
+                    st.rerun()
+                else:
+                    # 2. Cadastro automático (Usando nomes exatos das suas colunas)
+                    slug_novo = f"{nome.lower()}-{sobrenomo.lower()}"
+                    
+                    novo_prestador = {
+                        "nome": nome,
+                        "sobrenomo": sobrenomo,
+                        "telefone": telef,
+                        "slug_unico": slug_novo
+                    }
+                    
+                    supabase.table("prestadores").insert(novo_prestador).execute()
+                    
+                    # Busca o ID após inserir
                     res = supabase.table("prestadores").select("*").eq("telefone", telef).execute()
                     st.session_state.update({
                         "prestador_id": res.data[0]["id"],
-                        "nome": f"{nome} {sobrenome}",
+                        "nome": f"{nome} {sobrenomo}",
                         "slug": slug_novo
                     })
                     st.success("Cadastro realizado com sucesso!")
                     st.rerun()
-                except Exception as e:
-                    st.error(f"Erro ao registrar: {e}")
+            except Exception as e:
+                st.error(f"Erro no banco de dados: {e}")
         else:
-            st.error("⚠️ Por favor, preencha NOME, SOBRENOME e TELEFONE para continuar.")
+            st.error("⚠️ Por favor, preencha todos os campos.")
 
 else:
     # --- PAINEL PRINCIPAL ---
