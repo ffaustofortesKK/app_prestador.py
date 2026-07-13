@@ -18,7 +18,7 @@ if st.session_state.prestador_id is None:
     st.title("🎤 Portal do Prestador")
     
     nome = st.text_input("Nome:")
-    sobrenomo = st.text_input("Sobrenome:") # Corrigido conforme sua lista
+    sobrenomo = st.text_input("Sobrenome:") 
     telef = st.text_input("Telefone:")
     
     if st.button("Entrar"):
@@ -36,12 +36,14 @@ if st.session_state.prestador_id is None:
                     })
                     st.rerun()
                 else:
-                    # 2. Cadastro automático (Usando nomes exatos das suas colunas)
+                    # 2. Cadastro automático
                     slug_novo = f"{nome.lower()}-{sobrenomo.lower()}"
                     
+                    # ATENÇÃO: Verifique se o nome da coluna no Supabase é 'sobrenomo' ou 'sobrenome'
+                    # Se o erro PGRST204 persistir, troque a chave abaixo pelo nome que estiver no painel.
                     novo_prestador = {
                         "nome": nome,
-                        "sobrenomo": sobrenomo,
+                        "sobrenomo": sobrenomo, 
                         "telefone": telef,
                         "slug_unico": slug_novo
                     }
@@ -58,7 +60,7 @@ if st.session_state.prestador_id is None:
                     st.success("Cadastro realizado com sucesso!")
                     st.rerun()
             except Exception as e:
-                st.error(f"Erro no banco de dados: {e}")
+                st.error(f"Erro no banco de dados (Verifique o nome das colunas): {e}")
         else:
             st.error("⚠️ Por favor, preencha todos os campos.")
 
