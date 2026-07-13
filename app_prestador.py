@@ -11,23 +11,25 @@ supabase = create_client(url, key)
 
 st.set_page_config(page_title="Painel do Prestador", layout="centered")
 
-# Inicializar sessão
 if "prestador_id" not in st.session_state: st.session_state.prestador_id = None
 
-# --- LOGIN SEM SENHA ---
+# --- LOGIN / REGISTRO AUTOMÁTICO ---
 if st.session_state.prestador_id is None:
     st.title("🎤 Portal do Prestador")
-    col1, col2 = st.columns(2)
-    with col1:
-        nome = st.text_input("Nome:")
-        sobrenome = st.text_input("Sobrenome:")
+    
+    # Campos obrigatórios
+    nome = st.text_input("Nome:")
+    sobrenome = st.text_input("Sobrenome:")
     telef = st.text_input("Telefone:")
     
     if st.button("Entrar"):
-        if nome and telef:
-            # Busca o prestador no Supabase pelo telefone
+        # Validação de preenchimento obrigatório
+        if nome and sobrenome and telef:
+            # 1. Tenta buscar o prestador pelo telefone
             res = supabase.table("prestadores").select("*").eq("telefone", telef).execute()
+            
             if res.data:
+                # Prestador existe, faz login
                 st.session_state.update({
                     "prestador_id": res.data[0]["id"],
                     "nome": f"{nome} {sobrenome}",
@@ -35,9 +37,30 @@ if st.session_state.prestador_id is None:
                 })
                 st.rerun()
             else:
-                st.error("Prestador não encontrado. Verifique o número de telefone.")
+                # 2. Prestador não existe, cria novo registro automaticamente
+                slug_novo = f"{nome.lower()}-{sobrenome.lower()}"
+                novo_prestador = {
+                    "nome_prestador": f"{nome} {sobrenome}",
+                    "telefone": telef,
+                    "slug_unico": slug_novo
+                }
+                
+                try:
+                    insert_res = supabase.table("prestadores").insert(novo_prestador).execute()
+                    # Após criar, busca o ID gerado
+                    res = supabase.table("prestadores").select("*").eq("telefone", telef).execute()
+                    st.session_state.update({
+                        "prestador_id": res.data[0]["id"],
+                        "nome": f"{nome} {sobrenome}",
+                        "slug": slug_novo
+                    })
+                    st.success("Cadastro realizado com sucesso!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Erro ao registrar: {e}")
         else:
-            st.warning("Preencha todos os campos!")
+            st.error("⚠️ Por favor, preencha NOME, SOBRENOME e TELEFONE para continuar.")
+
 else:
     # --- PAINEL PRINCIPAL ---
     st.title(f"Bem-vindo, {st.session_state.nome}!")
@@ -46,21 +69,20 @@ else:
     st.info("Link de acesso para seus clientes:")
     st.code(url_cliente)
     
-    # Gerar QR Code
     qr = qrcode.make(url_cliente)
     buf = BytesIO()
     qr.save(buf, format="PNG")
     st.image(buf.getvalue(), width=150)
 
     st.subheader("📋 Pedidos Recebidos")
-    if st.button("🔄 Atualizar"):
+    if st.button("🔄 Atualizar Fila"):
         url_fila = f"https://grupoffkaraoke-default-rtdb.firebaseio.com/pedidos_{st.session_state.slug}.json"
         try:
             pedidos = requests.get(url_fila).json()
             if pedidos:
                 for chave, p in pedidos.items(): st.success(f"🎤 {p.get('cantor')}: {p.get('musica')}")
             else: st.write("Fila vazia.")
-        except: st.error("Erro ao buscar fila.")
+        except: st.error("Erro ao carregar pedidos.")
 
     if st.button("Sair"):
         st.session_state.prestador_id = None
