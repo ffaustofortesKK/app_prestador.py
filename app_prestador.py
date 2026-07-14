@@ -40,7 +40,8 @@ if st.session_state.prestador_id is None:
 else:
     st.title(f"Bem-vindo, {st.session_state.nome}!")
     
-    url_cliente = f"https://ffkaraoke-cliente.streamlit.app/?prestador={st.session_state.slug}"
+    # URL ATUALIZADA AQUI:
+    url_cliente = f"https://appcliente.streamlit.app/?prestador={st.session_state.slug}"
     
     col_link, col_qr = st.columns([2, 1])
     with col_link:
@@ -74,7 +75,6 @@ else:
                     st.rerun()
                 
                 if col3.button("🎤", key=f"start_{p_id}", help="Anunciar na TV"):
-                    # Envia cantor E música para a TV
                     requests.put(url_status, json={"acao": "contagem", "cantor": p.get('cantor'), "musica": p.get('musica')})
                     st.success("Enviado para TV!")
                     st.rerun()
