@@ -3,7 +3,6 @@ import qrcode
 from io import BytesIO
 from supabase import create_client
 import requests
-import time
 
 # Configuração Supabase
 url = st.secrets["URL_SUPABASE"]
@@ -42,7 +41,6 @@ else:
     # --- PAINEL PRINCIPAL ---
     st.title(f"Bem-vindo, {st.session_state.nome}!")
     
-    # Exibir Link e QR Code
     url_cliente = f"https://ffkaraoke-cliente.streamlit.app/?prestador={st.session_state.slug}"
     
     col_link, col_qr = st.columns([2, 1])
@@ -72,25 +70,21 @@ else:
                 col1, col2, col3 = st.columns([4, 1, 1])
                 col1.write(f"🎤 {p.get('cantor')} - {p.get('musica')}")
                 
-                # Remover
+                # Remover da fila
                 if col2.button("🗑️", key=f"del_{p_id}"):
                     requests.delete(f"{base_url}/pedidos_{st.session_state.slug}/{p_id}.json")
                     st.rerun()
                 
                 # Anunciar na TV
                 if col3.button("🎤", key=f"start_{p_id}", help="Anunciar e Iniciar"):
-                    # Envia sinal para a TV
-                    requests.patch(url_status, json={"acao": "contagem", "cantor": p.get('cantor')})
+                    # Apenas envia o sinal. A TV cuidará de exibir e limpar após o tempo necessário.
+                    requests.put(url_status, json={"acao": "contagem", "cantor": p.get('cantor')})
                     st.success("Enviado para TV!")
-                    
-                    # Opcional: Auto-limpar status da TV após 5 segundos para o próximo anúncio
-                    time.sleep(5)
-                    requests.patch(url_status, json={"acao": "aguardando", "cantor": ""})
-                    st.rerun()
+                    st.rerun() # Recarrega apenas para mostrar o sucesso
         else: 
             st.write("Fila vazia.")
-    except: 
-        st.error("Erro ao conectar com a fila.")
+    except Exception as e:
+        st.error(f"Erro ao conectar com a fila: {e}")
     
     if st.button("Sair"): 
         st.session_state.clear()
