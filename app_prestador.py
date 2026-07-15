@@ -8,12 +8,7 @@ from io import BytesIO
 import requests
 import time
 
-# Configuração Cloudinary
-cloudinary.config( 
-  cloud_name = "yhwgjh7g", 
-  api_key = "347924379441394", 
-  api_secret = "_gzZOnOmzIk6dlmferYm6ck8S08"
-)
+cloudinary.config(cloud_name="yhwgjh7g", api_key="347924379441394", api_secret="_gzZOnOmzIk6dlmferYm6ck8S08")
 
 st.set_page_config(page_title="Painel do Prestador", layout="wide")
 
@@ -26,59 +21,48 @@ def normalizar_nome(nome):
     nome = nome.replace(".mp4", "")
     nome = unicodedata.normalize('NFKD', nome).encode('ASCII', 'ignore').decode('utf-8')
     nome = re.sub(r'[^\w\s]', '', nome)
-    nome = "_".join(nome.split())
-    return nome
+    return "_".join(nome.split())
 
 def encontrar_link_real(nome_base):
     try:
         resources = cloudinary.api.resources(type="upload", resource_type="video", prefix=nome_base, max_results=1)
         if resources['resources']:
-            # Removido fl_attachment para facilitar a reprodução nativa na TV
+            # REMOVI O fl_attachment PARA A TV CONSEGUIR FAZER STREAMING DIRETO
             return resources['resources'][0]['secure_url'] 
     except: return None
 
-# --- LOGIN ---
 if st.session_state.nome is None:
     st.title("🎤 Portal do Prestador")
-    nome_input = st.text_input("Nome:")
-    sobrenome_input = st.text_input("Sobrenome:") 
-    telef = st.text_input("Telefone:")
-    if st.button("Entrar"):
-        if nome_input and sobrenome_input and telef:
-            slug_unico = f"{nome_input.lower()}-{sobrenome_input.lower()}"
-            telef_limpo = telef.replace(" ", "").replace("-", "")
-            requests.put(f"{BASE_URL}/prestadores/{telef_limpo}.json", json={"nome": f"{nome_input} {sobrenome_input}", "slug": slug_unico})
-            st.session_state.update({"nome": f"{nome_input} {sobrenome_input}", "slug": slug_unico})
-            st.rerun()
+    nome_input = st.text_input("Nome:"); sobrenome_input = st.text_input("Sobrenome:"); telef = st.text_input("Telefone:")
+    if st.button("Entrar") and nome_input and sobrenome_input and telef:
+        slug_unico = f"{nome_input.lower()}-{sobrenome_input.lower()}"
+        telef_limpo = telef.replace(" ", "").replace("-", "")
+        requests.put(f"{BASE_URL}/prestadores/{telef_limpo}.json", json={"nome": f"{nome_input} {sobrenome_input}", "slug": slug_unico})
+        st.session_state.update({"nome": f"{nome_input} {sobrenome_input}", "slug": slug_unico})
+        st.rerun()
 else:
     st.title(f"Bem-vindo, {st.session_state.nome}!")
-    url_status = f"{BASE_URL}/status_{st.session_state.slug}.json"
+    url_cliente = f"https://appcliente.streamlit.app/?prestador={st.session_state.slug}"
+    url_tv = f"https://ffktela.streamlit.app/?prestador={st.session_state.slug}"
     
-    st.divider()
-    st.subheader("📋 Gestão de Fila")
+    c1, c2 = st.columns([2, 1])
+    c1.info(f"🔗 Cliente: {url_cliente}"); c1.info(f"📺 TV: {url_tv}")
+    qr = qrcode.make(url_cliente); buf = BytesIO(); qr.save(buf, format="PNG"); c2.image(buf.getvalue(), width=100)
+    
+    url_status = f"{BASE_URL}/status_{st.session_state.slug}.json"
+    st.divider(); st.subheader("📋 Gestão de Fila")
     pedidos_data = requests.get(f"{BASE_URL}/pedidos_{st.session_state.slug}.json").json()
     
     if pedidos_data:
         for p_id, p in pedidos_data.items():
             col1, col2, col3 = st.columns([4, 1, 1])
             col1.write(f"🎤 {p.get('cantor')} - {p.get('musica')}")
-            if col2.button("🗑️", key=f"del_{p_id}"):
-                requests.delete(f"{BASE_URL}/pedidos_{st.session_state.slug}/{p_id}.json")
-                st.rerun()
+            if col2.button("🗑️", key=f"del_{p_id}"): requests.delete(f"{BASE_URL}/pedidos_{st.session_state.slug}/{p_id}.json"); st.rerun()
             if col3.button("🎤", key=f"start_{p_id}"):
-                link_real = encontrar_link_real(normalizar_nome(p.get('musica')))
-                if link_real:
-                    requests.put(url_status, json={"acao": "contagem", "cantor": p.get('cantor'), "musica": p.get('musica'), "url_video": link_real, "comando": "play"})
-                    st.rerun()
-    else:
-        st.write("Fila vazia.")
-
-    # --- CONTROLO REMOTO SIMPLIFICADO ---
-    st.divider()
-    st.subheader("🎮 Controlo Remoto")
-    col1, col2 = st.columns(2)
-    if col1.button("⏸️ Pause"): requests.patch(url_status, json={"comando": "pause"})
-    if col2.button("🔄 Recomeçar"): requests.patch(url_status, json={"comando": "repeat"})
+                link = encontrar_link_real(normalizar_nome(p.get('musica')))
+                if link: requests.put(url_status, json={"acao": "contagem", "cantor": p.get('cantor'), "musica": p.get('musica'), "url_video": link, "comando": "play"}); st.rerun()
     
-    time.sleep(5)
-    st.rerun()
+    st.divider(); st.subheader("🎮 Controlo Remoto")
+    if st.button("🔄 RECOMEÇAR MÚSICA"): requests.patch(url_status, json={"comando": "repeat"})
+    
+    time.sleep(5); st.rerun()
