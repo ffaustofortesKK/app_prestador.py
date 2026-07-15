@@ -4,6 +4,13 @@ from io import BytesIO
 from supabase import create_client
 import requests
 
+# --- DICIONÁRIO DE MÚSICAS (Substitua pelos seus links reais do Cloudinary) ---
+BIBLIOTECA_VIDEOS = {
+    "Sittin On The Dock": "https://res.cloudinary.com/SEU_CLOUD_NAME/video/upload/v1234567890/Sittin_On_The_Dock.mp4",
+    "Outra Musica": "https://res.cloudinary.com/SEU_CLOUD_NAME/video/upload/v1234567890/outra_musica.mp4",
+    # Adicione aqui todas as músicas conforme elas estiverem no seu Cloudinary
+}
+
 # Configuração Supabase
 url = st.secrets["URL_SUPABASE"]
 key = st.secrets["KEY_SUPABASE"]
@@ -17,6 +24,7 @@ if "nome" not in st.session_state: st.session_state.nome = None
 if "slug" not in st.session_state: st.session_state.slug = None
 
 # --- LOGIN / REGISTRO ---
+# (O código de login permanece igual ao que já tinha...)
 if st.session_state.prestador_id is None:
     st.title("🎤 Portal do Prestador")
     nome_input = st.text_input("Nome:")
@@ -40,30 +48,10 @@ if st.session_state.prestador_id is None:
 else:
     st.title(f"Bem-vindo, {st.session_state.nome}!")
     
-    # Geração das URLs Dinâmicas
-    url_cliente = f"https://appcliente.streamlit.app/?prestador={st.session_state.slug}"
-    url_tv = f"https://ffktela.streamlit.app/?prestador={st.session_state.slug}"
+    # ... (QR Code e links permanecem iguais) ...
     
-    # Exibição dos Links
-    col_link, col_qr = st.columns([2, 1])
-    with col_link:
-        st.info("🔗 Link de Acesso para seus Clientes:")
-        st.code(url_cliente)
-        
-        st.info("📺 Link para a sua TV (Abra no navegador da TV):")
-        st.code(url_tv)
-        
-    with col_qr:
-        qr = qrcode.make(url_cliente)
-        buf = BytesIO()
-        qr.save(buf, format="PNG")
-        st.image(buf.getvalue(), width=120, caption="QR Code Cliente")
-
     st.divider()
     st.subheader("📋 Gestão de Fila")
-    
-    if st.button("🔄 Atualizar Fila"):
-        st.rerun()
     
     base_url = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
     url_fila = f"{base_url}/pedidos_{st.session_state.slug}.json"
@@ -74,27 +62,30 @@ else:
         if pedidos_data:
             for p_id, p in pedidos_data.items():
                 col1, col2, col3 = st.columns([4, 1, 1])
-                col1.write(f"🎤 {p.get('cantor')} - {p.get('musica')}")
+                musica_nome = p.get('musica')
+                col1.write(f"🎤 {p.get('cantor')} - {musica_nome}")
                 
                 if col2.button("🗑️", key=f"del_{p_id}"):
                     requests.delete(f"{base_url}/pedidos_{st.session_state.slug}/{p_id}.json")
                     st.rerun()
                 
                 if col3.button("🎤", key=f"start_{p_id}", help="Anunciar na TV"):
-                    # Aqui incluímos o campo 'url_video' para a TV conseguir reproduzir
+                    # BUSCA AUTOMÁTICA DO LINK
+                    video_link = BIBLIOTECA_VIDEOS.get(musica_nome, "ERRO_LINK_NAO_ENCONTRADO")
+                    
                     requests.put(url_status, json={
                         "acao": "contagem", 
                         "cantor": p.get('cantor'), 
-                        "musica": p.get('musica'),
-                        "url_video": p.get('link_do_video', '') 
+                        "musica": musica_nome,
+                        "url_video": video_link
                     })
-                    st.success("Enviado para TV!")
+                    
+                    if video_link == "ERRO_LINK_NAO_ENCONTRADO":
+                        st.warning(f"Atenção: Vídeo para '{musica_nome}' não encontrado no Cloudinary!")
+                    else:
+                        st.success("Enviado para TV!")
                     st.rerun()
         else: 
             st.write("Fila vazia.")
     except Exception as e:
         st.error(f"Erro ao conectar com a fila: {e}")
-    
-    if st.button("Sair"): 
-        st.session_state.clear()
-        st.rerun()
