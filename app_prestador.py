@@ -11,6 +11,8 @@ if "slug" not in st.session_state: st.session_state.slug = None
 
 # URL BASE do Firebase
 BASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
+# Substitua pelo seu Cloud Name real do Cloudinary
+CLOUDINARY_CLOUD_NAME = "yhwgjh7g"
 
 # --- LOGIN SIMPLIFICADO ---
 if st.session_state.nome is None:
@@ -21,7 +23,6 @@ if st.session_state.nome is None:
     
     if st.button("Entrar"):
         if nome_input and sobrenome_input and telef:
-            # Cria um slug simples baseado no nome
             slug_unico = f"{nome_input.lower()}-{sobrenome_input.lower()}"
             st.session_state.update({"nome": f"{nome_input} {sobrenome_input}", "slug": slug_unico})
             st.rerun()
@@ -51,7 +52,6 @@ else:
     
     url_fila = f"{BASE_URL}/pedidos_{st.session_state.slug}.json"
     url_status = f"{BASE_URL}/status_{st.session_state.slug}.json"
-    url_catalogo = f"{BASE_URL}/catalogo_links.json" # Onde você guardará os links
     
     try:
         pedidos_data = requests.get(url_fila).json()
@@ -68,20 +68,19 @@ else:
                 
                 # Botão Iniciar (Tocar na TV)
                 if col3.button("🎤", key=f"start_{p_id}"):
-                    # Busca o link direto no Firebase
-                    catalogo = requests.get(url_catalogo).json()
-                    link_encontrado = catalogo.get(nome_musica) if catalogo else None
+                    # Construção automática da URL do Cloudinary
+                    # O Cloudinary entende o nome do arquivo diretamente na URL
+                    link_montado = f"https://res.cloudinary.com/{CLOUDINARY_CLOUD_NAME}/video/upload/{nome_musica}"
                     
-                    if link_encontrado:
-                        requests.put(url_status, json={
-                            "acao": "contagem", 
-                            "cantor": p.get('cantor'), 
-                            "musica": nome_musica,
-                            "url_video": link_encontrado
-                        })
-                        st.success(f"Enviado para TV: {nome_musica}")
-                    else:
-                        st.error(f"Link para '{nome_musica}' não encontrado no Firebase!")
+                    # Envia o comando para a TV
+                    requests.put(url_status, json={
+                        "acao": "contagem", 
+                        "cantor": p.get('cantor'), 
+                        "musica": nome_musica,
+                        "url_video": link_montado
+                    })
+                    st.success(f"Enviado para TV: {nome_musica}")
+                    st.rerun()
         else: 
             st.write("Fila vazia.")
     except Exception as e:
