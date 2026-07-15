@@ -30,16 +30,17 @@ def normalizar_nome(nome):
     return nome
 
 def encontrar_link_real(nome_base):
-    """Procura no Cloudinary e devolve um link otimizado para evitar pausas."""
+    """Procura no Cloudinary e devolve um link que força a leitura completa."""
     try:
         resources = cloudinary.api.resources(
             type="upload", resource_type="video", prefix=nome_base, max_results=1
         )
         if resources['resources']:
             url = resources['resources'][0]['secure_url']
-            # Alteração: Forçamos o uso do modo de leitura de ficheiro real.
-            # Adicionamos 'fl_attachment' ou apenas garantimos que a extensão seja .mp4
-            # Isso evita que o player da TV tente aplicar 'adaptive streaming' que falha.
+            # O truque para não fechar: transformamos a URL num link de acesso direto ao ficheiro puro
+            # Removemos qualquer otimização automática do Cloudinary
+            if "/upload/" in url:
+                url = url.replace("/upload/", "/upload/fl_attachment/")
             if not url.endswith('.mp4'):
                 url += ".mp4"
             return url
@@ -106,14 +107,13 @@ else:
                     link_real = encontrar_link_real(nome_base)
                     
                     if link_real:
-                        # Enviamos o link que termina explicitamente em .mp4
                         requests.put(url_status, json={
                             "acao": "contagem", 
                             "cantor": p.get('cantor'), 
                             "musica": nome_musica,
                             "url_video": link_real
                         })
-                        st.success(f"Enviado para TV: {nome_musica}")
+                        st.success(f"Enviado para TV (Modo Estável): {nome_musica}")
                     else:
                         st.error(f"Vídeo não encontrado: {nome_base}")
                     st.rerun()
