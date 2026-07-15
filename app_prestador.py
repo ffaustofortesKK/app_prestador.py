@@ -33,8 +33,8 @@ def encontrar_link_real(nome_base):
     try:
         resources = cloudinary.api.resources(type="upload", resource_type="video", prefix=nome_base, max_results=1)
         if resources['resources']:
-            url = resources['resources'][0]['secure_url']
-            return url.replace("/upload/", "/upload/fl_attachment/") + ".mp4"
+            # Removido fl_attachment para facilitar a reprodução nativa na TV
+            return resources['resources'][0]['secure_url'] 
     except: return None
 
 # --- LOGIN ---
@@ -52,24 +52,10 @@ if st.session_state.nome is None:
             st.rerun()
 else:
     st.title(f"Bem-vindo, {st.session_state.nome}!")
-    url_cliente = f"https://appcliente.streamlit.app/?prestador={st.session_state.slug}"
-    url_tv = f"https://ffktela.streamlit.app/?prestador={st.session_state.slug}"
-    
-    col_l1, col_l2 = st.columns([2, 1])
-    with col_l1:
-        st.info(f"🔗 Cliente: {url_cliente}")
-        st.info(f"📺 TV: {url_tv}")
-    with col_l2:
-        qr = qrcode.make(url_cliente)
-        buf = BytesIO()
-        qr.save(buf, format="PNG")
-        st.image(buf.getvalue(), width=100, caption="QR Code Cliente")
-    
     url_status = f"{BASE_URL}/status_{st.session_state.slug}.json"
     
     st.divider()
-    st.subheader("📋 Gestão de Fila (Atualização Automática)")
-    
+    st.subheader("📋 Gestão de Fila")
     pedidos_data = requests.get(f"{BASE_URL}/pedidos_{st.session_state.slug}.json").json()
     
     if pedidos_data:
@@ -87,15 +73,12 @@ else:
     else:
         st.write("Fila vazia.")
 
-    # --- CONTROLO REMOTO ---
+    # --- CONTROLO REMOTO SIMPLIFICADO ---
     st.divider()
     st.subheader("🎮 Controlo Remoto")
-    c1, c2, c3, c4, c5 = st.columns(5)
-    if c1.button("⏸️ Pause"): requests.patch(url_status, json={"comando": "pause"})
-    if c2.button("▶️ Play"): requests.patch(url_status, json={"comando": "play"})
-    if c3.button("🔄 Repetir"): requests.patch(url_status, json={"comando": "repeat"})
-    if c4.button("⏪ -10s"): requests.patch(url_status, json={"comando": "voltar"})
-    if c5.button("⏩ +10s"): requests.patch(url_status, json={"comando": "avancar"})
+    col1, col2 = st.columns(2)
+    if col1.button("⏸️ Pause"): requests.patch(url_status, json={"comando": "pause"})
+    if col2.button("🔄 Recomeçar"): requests.patch(url_status, json={"comando": "repeat"})
     
-    time.sleep(5) # Atualiza a fila a cada 5 segundos
+    time.sleep(5)
     st.rerun()
