@@ -16,11 +16,8 @@ CLOUDINARY_CLOUD_NAME = "yhwgjh7g"
 
 # Função para formatar o nome da música para o padrão do Cloudinary
 def normalizar_nome(nome):
-    # Remove o .mp4 se existir
     nome = nome.replace(".mp4", "")
-    # Remove caracteres especiais (deixa letras, números e espaços)
     nome = re.sub(r'[^\w\s]', '', nome)
-    # Substitui espaços por underline (_)
     nome = "_".join(nome.split())
     return nome
 
@@ -34,6 +31,18 @@ if st.session_state.nome is None:
     if st.button("Entrar"):
         if nome_input and sobrenome_input and telef:
             slug_unico = f"{nome_input.lower()}-{sobrenome_input.lower()}"
+            
+            # --- CORREÇÃO: SALVAR REGISTO NO FIREBASE PARA O ADM ---
+            data_prestador = {
+                "nome": f"{nome_input} {sobrenome_input}",
+                "telefone": telef,
+                "slug": slug_unico
+            }
+            # Remove espaços do telefone para usar como ID único
+            telef_limpo = telef.replace(" ", "").replace("-", "")
+            requests.put(f"{BASE_URL}/prestadores/{telef_limpo}.json", json=data_prestador)
+            # --------------------------------------------------------
+            
             st.session_state.update({"nome": f"{nome_input} {sobrenome_input}", "slug": slug_unico})
             st.rerun()
 else:
@@ -71,18 +80,12 @@ else:
                 nome_musica = p.get('musica')
                 col1.write(f"🎤 {p.get('cantor')} - {nome_musica}")
                 
-                # Botão Excluir
                 if col2.button("🗑️", key=f"del_{p_id}"):
                     requests.delete(f"{BASE_URL}/pedidos_{st.session_state.slug}/{p_id}.json")
                     st.rerun()
                 
-                # Botão Iniciar (Tocar na TV)
                 if col3.button("🎤", key=f"start_{p_id}"):
-                    # Aplica a normalização para casar com o formato do Cloudinary
                     nome_tecnico = normalizar_nome(nome_musica)
-                    
-                    # Constrói o link. NOTA: Adicionei o sufixo _jmzrrn caso todos tenham esse padrão, 
-                    # mas se não for em todos, remova o "+ '_jmzrrn'" abaixo.
                     link_montado = f"https://res.cloudinary.com/{CLOUDINARY_CLOUD_NAME}/video/upload/{nome_tecnico}_jmzrrn"
                     
                     requests.put(url_status, json={
