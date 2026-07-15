@@ -1,4 +1,4 @@
 streamlit
 requests
 qrcode
-Pillow
+cloudinary
