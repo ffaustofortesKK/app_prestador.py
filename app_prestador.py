@@ -14,14 +14,11 @@ if "slug" not in st.session_state: st.session_state.slug = None
 BASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
 CLOUDINARY_CLOUD_NAME = "yhwgjh7g"
 
-# FUNÇÃO: Remove acentos e padroniza o nome para o formato do Cloudinary
+# FUNÇÃO: Remove acentos e padroniza o nome
 def normalizar_nome(nome):
     nome = nome.replace(".mp4", "")
-    # Remove acentos (ex: Dúnem -> Dunem)
     nome = unicodedata.normalize('NFKD', nome).encode('ASCII', 'ignore').decode('utf-8')
-    # Remove caracteres especiais
     nome = re.sub(r'[^\w\s]', '', nome)
-    # Substitui espaços por underline
     nome = "_".join(nome.split())
     return nome
 
@@ -45,11 +42,16 @@ if st.session_state.nome is None:
 else:
     st.title(f"Bem-vindo, {st.session_state.nome}!")
     
+    # Links de Acesso
     url_cliente = f"https://appcliente.streamlit.app/?prestador={st.session_state.slug}"
+    url_tv = f"https://ffktela.streamlit.app/?prestador={st.session_state.slug}"
+    
     col_link, col_qr = st.columns([2, 1])
     with col_link:
         st.info("🔗 Link para seus Clientes:")
         st.code(url_cliente)
+        st.info("📺 Link para a sua TV:")
+        st.code(url_tv)
     with col_qr:
         qr = qrcode.make(url_cliente)
         buf = BytesIO()
@@ -77,14 +79,15 @@ else:
                     st.rerun()
                 
                 if col3.button("🎤", key=f"start_{p_id}"):
-                    # Normaliza o nome (Remove acentos e espaços)
+                    # 1. Normaliza o nome para encontrar no Cloudinary
                     nome_tecnico = normalizar_nome(nome_musica)
                     
-                    # MONTAGEM DA URL:
-                    # ATENÇÃO: Se o ficheiro tem sufixo (ex: _dlzgaq), ele tem de estar no link.
-                    # Se o nome no Cloudinary é apenas "Neide_Van_Dunem_Esta_Noite", este link funciona:
+                    # 2. Monta a URL (Assumindo que o ficheiro no Cloudinary tem o nome sem acentos/pontuação)
+                    # NOTA: Se ainda tiver problemas com o final "_xxxxx", 
+                    # é porque o Cloudinary adicionou um ID único.
                     link_montado = f"https://res.cloudinary.com/{CLOUDINARY_CLOUD_NAME}/video/upload/{nome_tecnico}"
                     
+                    # 3. ENVIA PARA A TV (Isto faz a TV disparar o vídeo)
                     requests.put(url_status, json={
                         "acao": "contagem", 
                         "cantor": p.get('cantor'), 
