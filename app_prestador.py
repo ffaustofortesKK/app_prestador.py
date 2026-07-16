@@ -20,7 +20,6 @@ BASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
 
 def normalizar_nome(nome):
     nome = nome.replace(".mp4", "")
-    # Remove caracteres especiais para evitar erros de JSON
     nome = re.sub(r'["\'()\[\]]', '', nome)
     nome = unicodedata.normalize('NFKD', nome).encode('ASCII', 'ignore').decode('utf-8')
     nome = re.sub(r'[^\w\s]', '', nome)
@@ -62,13 +61,23 @@ else:
             if col2.button("🗑️", key=f"del_{p_id}"): requests.delete(f"{BASE_URL}/pedidos_{st.session_state.slug}/{p_id}.json"); st.rerun()
             
             if col3.button("🎤", key=f"start_{p_id}"):
-                # --- ANÚNCIO POR VOZ (LOUTOR) ---
-                msg_voz = f"Senhoras e Senhores,Agora no palco, {p.get('cantor')}, cantando {p.get('musica')}"
+                # --- ANÚNCIO COM EMOÇÃO E PALMAS ---
+                texto_anuncio = f"Senhoras e senhores! Agora no palco, {p.get('cantor')}! Peço a todos uma grande salva de palmas para {p.get('cantor')} cantando {p.get('musica')}!"
+                
                 st.components.v1.html(f"""
                     <script>
-                        var msg = new SpeechSynthesisUtterance("{msg_voz}");
-                        msg.lang = 'pt-PT';
-                        window.speechSynthesis.speak(msg);
+                        // 1. Toca as palmas
+                        var audio = new Audio('https://www.myinstants.com/media/sounds/applause.mp3');
+                        audio.play();
+                        
+                        // 2. Fala o anúncio
+                        setTimeout(() => {{
+                            var msg = new SpeechSynthesisUtterance("{texto_anuncio}");
+                            msg.lang = 'pt-PT';
+                            msg.pitch = 0.8; // Tom mais grave (voz masculina)
+                            msg.rate = 0.9;  // Velocidade um pouco mais lenta para mais impacto
+                            window.speechSynthesis.speak(msg);
+                        }}, 500);
                     </script>
                 """, height=0)
                 
