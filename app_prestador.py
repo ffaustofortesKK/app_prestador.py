@@ -79,40 +79,36 @@ else:
                 requests.delete(f"{BASE_URL}/pedidos_{st.session_state.slug}/{p_id}.json"); st.rerun()
             
             if col3.button("🎤", key=f"start_{p_id}"):
-                # Efeito de anúncio Estilo Herman José
-                texto_anuncio = f"Senhoras e senhores!Recebam no nosso palco, {p.get('cantor')}!"
+                texto_anuncio = f"Senhoras e senhores! Recebam no nosso palco, {p.get('cantor')}!"
                 
                 st.components.v1.html(f"""
                     <script>
-                        // Função para falar e depois tocar palmas
                         var msg = new SpeechSynthesisUtterance("{texto_anuncio}");
                         msg.lang = 'pt-PT';
-                        msg.pitch = 0.7; // Voz bem masculina e grave
-                        msg.rate = 1.0;  // Ritmo natural
+                        msg.pitch = 0.7; 
+                        msg.rate = 1.0;  
                         msg.volume = 1.0;
-                        
                         msg.onend = function() {{
                             var audio = new Audio('https://www.myinstants.com/media/sounds/applause.mp3');
                             audio.play();
                         }};
-                        
                         window.speechSynthesis.speak(msg);
                     </script>
                 """, height=0)
                 
                 link = encontrar_link_real(normalizar_nome(p.get('musica')))
                 if link: 
+                    # A MÁGICA ESTÁ AQUI: Enviamos "aguardando_play" em vez de "play"
                     requests.put(url_status, json={
-                        "acao": "contagem", "cantor": p.get('cantor'), 
-                        "musica": p.get('musica'), "url_video": link, "comando": "play"
+                        "acao": "contagem", 
+                        "cantor": p.get('cantor'), 
+                        "musica": p.get('musica'), 
+                        "url_video": link, 
+                        "comando": "aguardando_play" 
                     })
                     st.rerun()
     else:
         st.write("Fila vazia.")
-    
-    st.markdown("---")
-    st.subheader("🎮 Controlo Remoto")
-    if st.button("🔄 RECOMEÇAR MÚSICA"): requests.patch(url_status, json={"comando": "repeat"})
-    
+            
     time.sleep(5)
     st.rerun()
