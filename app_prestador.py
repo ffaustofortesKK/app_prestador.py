@@ -98,7 +98,6 @@ else:
                 
                 link = encontrar_link_real(normalizar_nome(p.get('musica')))
                 if link: 
-                    # A MÁGICA ESTÁ AQUI: Enviamos "aguardando_play" em vez de "play"
                     requests.put(url_status, json={
                         "acao": "contagem", 
                         "cantor": p.get('cantor'), 
@@ -107,6 +106,12 @@ else:
                         "comando": "aguardando_play" 
                     })
                     st.rerun()
+        
+        st.markdown("---")
+        # Botão para o Prestador forçar o início (Controle extra)
+        if st.button("▶️ FORÇAR INÍCIO DE MÚSICA (IMEDIATO)"):
+            requests.patch(url_status, json={"comando": "play"})
+            st.rerun()
     else:
         st.write("Fila vazia.")
             
