@@ -8,6 +8,7 @@ from io import BytesIO
 import requests
 import time
 
+# Configuração Cloudinary
 cloudinary.config(cloud_name="yhwgjh7g", api_key="347924379441394", api_secret="_gzZOnOmzIk6dlmferYm6ck8S08")
 
 st.set_page_config(page_title="Painel do Prestador", layout="wide")
@@ -19,6 +20,8 @@ BASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
 
 def normalizar_nome(nome):
     nome = nome.replace(".mp4", "")
+    # Remove caracteres especiais para evitar erros de JSON
+    nome = re.sub(r'["\'()\[\]]', '', nome)
     nome = unicodedata.normalize('NFKD', nome).encode('ASCII', 'ignore').decode('utf-8')
     nome = re.sub(r'[^\w\s]', '', nome)
     return "_".join(nome.split())
@@ -27,7 +30,6 @@ def encontrar_link_real(nome_base):
     try:
         resources = cloudinary.api.resources(type="upload", resource_type="video", prefix=nome_base, max_results=1)
         if resources['resources']:
-            # REMOVI O fl_attachment PARA A TV CONSEGUIR FAZER STREAMING DIRETO
             return resources['resources'][0]['secure_url'] 
     except: return None
 
@@ -58,9 +60,29 @@ else:
             col1, col2, col3 = st.columns([4, 1, 1])
             col1.write(f"🎤 {p.get('cantor')} - {p.get('musica')}")
             if col2.button("🗑️", key=f"del_{p_id}"): requests.delete(f"{BASE_URL}/pedidos_{st.session_state.slug}/{p_id}.json"); st.rerun()
+            
             if col3.button("🎤", key=f"start_{p_id}"):
+                # --- ANÚNCIO POR VOZ (LOUTOR) ---
+                msg_voz = f"Agora no palco, {p.get('cantor')}, cantando {p.get('musica')}"
+                st.components.v1.html(f"""
+                    <script>
+                        var msg = new SpeechSynthesisUtterance("{msg_voz}");
+                        msg.lang = 'pt-PT';
+                        window.speechSynthesis.speak(msg);
+                    </script>
+                """, height=0)
+                
+                # --- ENVIO PARA A TV ---
                 link = encontrar_link_real(normalizar_nome(p.get('musica')))
-                if link: requests.put(url_status, json={"acao": "contagem", "cantor": p.get('cantor'), "musica": p.get('musica'), "url_video": link, "comando": "play"}); st.rerun()
+                if link: 
+                    requests.put(url_status, json={
+                        "acao": "contagem", 
+                        "cantor": p.get('cantor'), 
+                        "musica": p.get('musica'), 
+                        "url_video": link, 
+                        "comando": "play"
+                    })
+                    st.rerun()
     
     st.divider(); st.subheader("🎮 Controlo Remoto")
     if st.button("🔄 RECOMEÇAR MÚSICA"): requests.patch(url_status, json={"comando": "repeat"})
