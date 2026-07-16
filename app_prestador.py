@@ -1,68 +1,78 @@
 import streamlit as st
-import qrcode
-import re
-import unicodedata
-import cloudinary
-import cloudinary.api
-from io import BytesIO
 import requests
 import time
+import streamlit.components.v1 as components
 
-cloudinary.config(cloud_name="yhwgjh7g", api_key="347924379441394", api_secret="_gzZOnOmzIk6dlmferYm6ck8S08")
+st.set_page_config(page_title="FF KARAOKE - TV", layout="wide")
 
-st.set_page_config(page_title="Painel do Prestador", layout="wide")
+# CSS para o fundo da TV e esconder elementos do Streamlit
+st.markdown("""
+    <style>
+        .stApp { 
+            background: url('https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=2074&auto=format&fit=crop'); 
+            background-size: cover; 
+            background-position: center;
+        }
+        #MainMenu {visibility: hidden;} footer {visibility: hidden;}
+        .fila-container { background: rgba(0,0,0,0.7); padding: 30px; border-radius: 20px; color: white; margin-top: 50px; }
+    </style>
+""", unsafe_allow_html=True)
 
-if "nome" not in st.session_state: st.session_state.nome = None
-if "slug" not in st.session_state: st.session_state.slug = None
+params = st.query_params
+slug = params.get("prestador")
+if not slug: st.error("URL Inválida"); st.stop()
 
-BASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
+URL_STATUS = f"https://grupoffkaraoke-default-rtdb.firebaseio.com/status_{slug}.json"
+URL_PEDIDOS = f"https://grupoffkaraoke-default-rtdb.firebaseio.com/pedidos_{slug}.json"
 
-def normalizar_nome(nome):
-    nome = nome.replace(".mp4", "")
-    nome = unicodedata.normalize('NFKD', nome).encode('ASCII', 'ignore').decode('utf-8')
-    nome = re.sub(r'[^\w\s]', '', nome)
-    return "_".join(nome.split())
+display = st.empty()
+video_atual = ""
 
-def encontrar_link_real(nome_base):
+while True:
     try:
-        resources = cloudinary.api.resources(type="upload", resource_type="video", prefix=nome_base, max_results=1)
-        if resources['resources']:
-            # REMOVI O fl_attachment PARA A TV CONSEGUIR FAZER STREAMING DIRETO
-            return resources['resources'][0]['secure_url'] 
-    except: return None
-
-if st.session_state.nome is None:
-    st.title("🎤 Portal do Prestador")
-    nome_input = st.text_input("Nome:"); sobrenome_input = st.text_input("Sobrenome:"); telef = st.text_input("Telefone:")
-    if st.button("Entrar") and nome_input and sobrenome_input and telef:
-        slug_unico = f"{nome_input.lower()}-{sobrenome_input.lower()}"
-        telef_limpo = telef.replace(" ", "").replace("-", "")
-        requests.put(f"{BASE_URL}/prestadores/{telef_limpo}.json", json={"nome": f"{nome_input} {sobrenome_input}", "slug": slug_unico})
-        st.session_state.update({"nome": f"{nome_input} {sobrenome_input}", "slug": slug_unico})
-        st.rerun()
-else:
-    st.title(f"Bem-vindo, {st.session_state.nome}!")
-    url_cliente = f"https://appcliente.streamlit.app/?prestador={st.session_state.slug}"
-    url_tv = f"https://ffktela.streamlit.app/?prestador={st.session_state.slug}"
+        # Busca status e pedidos
+        status = requests.get(URL_STATUS, timeout=5).json()
+        pedidos = requests.get(URL_PEDIDOS, timeout=5).json()
+        
+        # Verifica se há vídeo para tocar (comando 'play')
+        if isinstance(status, dict) and status.get("url_video") and status.get("comando") == "play":
+            nova_url = status.get('url_video')
+            
+            components.html(f"""
+                <div style='text-align: center; background: black; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center;'>
+                    <h1 style='color: yellow;'>SOLTA A VOZ: {status.get('cantor', 'CANTOR').upper()}</h1>
+                    <video id="v1" width="800" autoplay playsinline style="border: 10px solid #FFD700; border-radius: 20px;">
+                        <source src="{nova_url}" type="video/mp4">
+                    </video>
+                </div>
+                <script>
+                    var vid = document.getElementById('v1');
+                    vid.play();
+                    
+                    // Quando o vídeo acaba, volta para a tela de espera
+                    vid.onended = function() {{ 
+                        fetch('{URL_STATUS}', {{ method: 'PATCH', body: JSON.stringify({{comando: 'stop'}}) }})
+                        .then(() => {{ window.location.reload(); }});
+                    }};
+                    
+                    document.body.addEventListener('click', () => {{ vid.play(); vid.muted = false; }});
+                </script>
+            """, height=800)
+        else:
+            # Tela de Espera com Lista de Pedidos
+            with display.container():
+                st.markdown("<h1 style='text-align: center; color: white; text-shadow: 2px 2px #000; margin-top: 50px;'>AGUARDANDO PRÓXIMO CANTOR...</h1>", unsafe_allow_html=True)
+                
+                if pedidos and isinstance(pedidos, dict):
+                    st.markdown("<div class='fila-container'>", unsafe_allow_html=True)
+                    st.subheader("📋 FILA DE ESPERA:")
+                    for i, (p_id, p) in enumerate(pedidos.items(), 1):
+                        st.markdown(f"<h2>{i}. {p.get('cantor')} - {p.get('musica')}</h2>")
+                    st.markdown("</div>", unsafe_allow_html=True)
+                else:
+                    st.markdown("<div class='fila-container'><h2>Fila vazia. Aguardando novos pedidos!</h2></div>", unsafe_allow_html=True)
     
-    c1, c2 = st.columns([2, 1])
-    c1.info(f"🔗 Cliente: {url_cliente}"); c1.info(f"📺 TV: {url_tv}")
-    qr = qrcode.make(url_cliente); buf = BytesIO(); qr.save(buf, format="PNG"); c2.image(buf.getvalue(), width=100)
-    
-    url_status = f"{BASE_URL}/status_{st.session_state.slug}.json"
-    st.divider(); st.subheader("📋 Gestão de Fila")
-    pedidos_data = requests.get(f"{BASE_URL}/pedidos_{st.session_state.slug}.json").json()
-    
-    if pedidos_data:
-        for p_id, p in pedidos_data.items():
-            col1, col2, col3 = st.columns([4, 1, 1])
-            col1.write(f"🎤 {p.get('cantor')} - {p.get('musica')}")
-            if col2.button("🗑️", key=f"del_{p_id}"): requests.delete(f"{BASE_URL}/pedidos_{st.session_state.slug}/{p_id}.json"); st.rerun()
-            if col3.button("🎤", key=f"start_{p_id}"):
-                link = encontrar_link_real(normalizar_nome(p.get('musica')))
-                if link: requests.put(url_status, json={"acao": "contagem", "cantor": p.get('cantor'), "musica": p.get('musica'), "url_video": link, "comando": "play"}); st.rerun()
-    
-    st.divider(); st.subheader("🎮 Controlo Remoto")
-    if st.button("🔄 RECOMEÇAR MÚSICA"): requests.patch(url_status, json={"comando": "repeat"})
-    
-    time.sleep(5); st.rerun()
+    except Exception as e:
+        display.warning("Aguardando conexão com o servidor...")
+        
+    time.sleep(3)
