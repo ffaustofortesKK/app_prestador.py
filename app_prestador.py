@@ -59,19 +59,28 @@ else:
     st.title(f"🎤 Bem-vindo, {st.session_state.nome}!")
     st.markdown("---")
 
+    # Exibir QR Code
+    url_cliente = f"https://appcliente.streamlit.app/?prestador={st.session_state.slug}"
+    qr = qrcode.make(url_cliente)
+    buf = BytesIO()
+    qr.save(buf, format="PNG")
+    st.sidebar.image(buf.getvalue(), caption="QR Code para Clientes")
+    st.sidebar.write(f"Link: {url_cliente}")
+
     # CARREGAR PEDIDOS
-    pedidos = requests.get(f"{BASE_URL}/pedidos_{st.session_state.slug}.json").json() or {}
+    pedidos_res = requests.get(f"{BASE_URL}/pedidos_{st.session_state.slug}.json")
+    pedidos = pedidos_res.json() if pedidos_res.status_code == 200 else {}
     
     st.subheader("Fila de Pedidos")
-    if not pedidos:
+    if not pedidos or pedidos == {}:
         st.info("Nenhum pedido na fila.")
     else:
         for p_id, p in pedidos.items():
-            col1, col2 = st.columns([4, 1])
+            col1, col2, col3 = st.columns([3, 1, 1])
             col1.write(f"🎤 {p.get('cantor')} - {p.get('musica')}")
             
+            # Botão de Chamar
             if col2.button("Chamar", key=f"btn_{p_id}"):
-                # LÓGICA DE CHAMADA: Atualiza o status para o cliente captar
                 nome_musica = p.get('musica')
                 link = encontrar_link_real(normalizar_nome(nome_musica))
                 
@@ -83,10 +92,12 @@ else:
                 }
                 requests.put(f"{BASE_URL}/status_{st.session_state.slug}.json", json=payload)
                 st.toast(f"Chamando {p.get('cantor')}...")
-                time.sleep(1)
+            
+            # Botão de Remover
+            if col3.button("🗑️", key=f"del_{p_id}"):
+                requests.delete(f"{BASE_URL}/pedidos_{st.session_state.slug}/{p_id}.json")
                 st.rerun()
 
-    # Botão para forçar play (se necessário)
     if st.button("▶️ FORÇAR PLAY"):
         requests.patch(f"{BASE_URL}/status_{st.session_state.slug}.json", json={"comando": "play"})
         st.rerun()
