@@ -28,10 +28,21 @@ def normalizar_nome(nome):
 
 def encontrar_link_real(nome_base):
     try:
-        resources = cloudinary.api.resources(type="upload", resource_type="video", prefix=nome_base, max_results=1)
-        if resources['resources']:
-            return resources['resources'][0]['secure_url'] 
-    except: return None
+        # Tenta a busca por prefixo exato primeiro
+        resources = cloudinary.api.resources(type="upload", resource_type="video", prefix=nome_base, max_results=5)
+        if resources.get('resources'):
+            return resources['resources'][0]['secure_url']
+            
+        # Se falhar, faz uma varredura inteligente por parte do nome (ex: primeira palavra chave)
+        termo_busca = nome_base.split('_')[0] if '_' in nome_base else nome_base
+        all_res = cloudinary.api.resources(type="upload", resource_type="video", max_results=100)
+        for res in all_res.get('resources', []):
+            public_id = res.get('public_id', '').lower()
+            if termo_busca.lower() in public_id:
+                return res['secure_url']
+    except Exception:
+        pass
+    return None
 
 # --- ESTRUTURA DA PÁGINA ---
 if st.session_state.nome is None:
