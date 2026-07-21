@@ -28,22 +28,25 @@ def normalizar_nome(nome):
 
 def encontrar_link_real(nome_base):
     try:
+        # 1. Tenta procurar estritamente dentro da pasta 'clipes'
         resources = cloudinary.api.resources(type="upload", resource_type="video", prefix=f"clipes/{nome_base}", max_results=5)
         if resources.get('resources'):
             return resources['resources'][0]['secure_url']
         
-        all_res = cloudinary.api.resources(type="upload", resource_type="video", prefix="clipes", max_results=200)
+        # 2. Se não encontrar, faz uma busca global em toda a conta por correspondência de nome
+        all_res = cloudinary.api.resources(type="upload", resource_type="video", max_results=500)
         for res in all_res.get('resources', []):
-            if nome_base.lower() in res.get('public_id', '').lower():
+            public_id = res.get('public_id', '').lower()
+            if nome_base.lower() in public_id:
                 return res.get('secure_url')
-    except Exception:
-        pass
+    except Exception as e:
+        print(f"Erro ao procurar link real: {e}")
     return None
 
 def obter_lista_video_clipes():
     try:
         search_result = cloudinary.search.Search()\
-            .expression('folder=clipes AND resource_type:video')\
+            .expression('resource_type:video')\
             .max_results(100)\
             .execute()
         lista = []
@@ -53,7 +56,7 @@ def obter_lista_video_clipes():
             lista.append((nome_limpo, item.get('secure_url')))
         
         if not lista:
-            result = cloudinary.api.resources(type="upload", resource_type="video", prefix="clipes", max_results=100)
+            result = cloudinary.api.resources(type="upload", resource_type="video", max_results=100)
             for item in result.get('resources', []):
                 pid = item.get('public_id', '')
                 nome_limpo = pid.split('/')[-1]
@@ -118,8 +121,7 @@ else:
         clipes_disponiveis = obter_lista_video_clipes()
         
         if clipes_disponiveis:
-            # 🔍 Barra de Pesquisa de Vídeos Clipes na Pasta 'clipes'
-            termo_pesquisa = st.text_input("🔍 Pesquisar música/clipe na pasta 'clipes' do Cloudinary:", "").strip().lower()
+            termo_pesquisa = st.text_input("🔍 Pesquisar música/clipe no Cloudinary:", "").strip().lower()
             
             if termo_pesquisa:
                 clipes_filtrados = [c for c in clipes_disponiveis if termo_pesquisa in c[0].lower()]
@@ -147,7 +149,7 @@ else:
             else:
                 st.warning(f"Nenhum clipe encontrado com o termo '{termo_pesquisa}'.")
         else:
-            st.warning("Nenhum vídeo clipe encontrado na pasta 'clipes' do Cloudinary.")
+            st.warning("Nenhum vídeo encontrado no Cloudinary.")
             
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -165,15 +167,20 @@ else:
                     requests.delete(f"{BASE_URL}/pedidos_{st.session_state.slug}/{p_id}.json"); st.rerun()
                 
                 if col3.button("🎤", key=f"start_{p_id}"):
-                    link = encontrar_link_real(normalizar_nome(p.get('musica')))
-                    requests.put(url_status, json={
-                        "cantor": p.get('cantor'), 
-                        "musica": p.get('musica'), 
-                        "url_video": link, 
-                        "comando": "aguardando_play" 
-                    })
-                    requests.delete(f"{BASE_URL}/pedidos_{st.session_state.slug}/{p_id}.json")
-                    st.rerun()
+                    nome_musica = p.get('musica')
+                    link = encontrar_link_real(normalizar_nome(nome_musica))
+                    
+                    if link:
+                        requests.put(url_status, json={
+                            "cantor": p.get('cantor'), 
+                            "musica": nome_musica, 
+                            "url_video": link, 
+                            "comando": "aguardando_play" 
+                        })
+                        requests.delete(f"{BASE_URL}/pedidos_{st.session_state.slug}/{p_id}.json")
+                        st.rerun()
+                    else:
+                        st.error(f"❌ Vídeo '{nome_musica}' não foi encontrado no Cloudinary! Verifique o nome.")
         
         st.markdown("---")
         if st.button("▶️ FORÇAR INÍCIO DE MÚSICA (IMEDIATO)"):
