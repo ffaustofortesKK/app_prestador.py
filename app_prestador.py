@@ -28,9 +28,11 @@ def normalizar_nome(nome):
 
 def encontrar_link_real(nome_base):
     try:
+        # Busca global em toda a conta do Cloudinary por correspondência de nome
         all_res = cloudinary.api.resources(type="upload", resource_type="video", max_results=500)
         for res in all_res.get('resources', []):
             public_id = res.get('public_id', '').lower()
+            # Remove o nome da pasta se houver, para comparar apenas o nome do ficheiro
             nome_arquivo = public_id.split('/')[-1]
             if nome_base.lower() in nome_arquivo or nome_base.lower() in public_id:
                 return res.get('secure_url')
@@ -39,55 +41,18 @@ def encontrar_link_real(nome_base):
     return None
 
 def obter_lista_video_clipes():
-    lista = []
-    seen_urls = set()
-    
-    # 1. Tenta buscar via Cloudinary Search API na pasta 'clipes'
     try:
-        search_result = cloudinary.search.Search()\
-            .expression('folder=clipes AND resource_type:video')\
-            .max_results(100)\
-            .execute()
-        
-        for item in search_result.get('resources', []):
+        # Busca universal de todos os vídeos na conta (raiz e pastas)
+        result = cloudinary.api.resources(type="upload", resource_type="video", max_results=500)
+        lista = []
+        for item in result.get('resources', []):
             pid = item.get('public_id', '')
-            url = item.get('secure_url')
-            if url and url not in seen_urls:
-                nome_limpo = pid.split('/')[-1]
-                lista.append((nome_limpo, url))
-                seen_urls.add(url)
+            nome_limpo = pid.split('/')[-1]
+            lista.append((nome_limpo, item.get('secure_url')))
+        return lista
     except Exception as e:
-        print(f"Aviso na Search API (clipes): {e}")
-
-    # 2. Se a pasta 'clipes' vier vazia, tenta prefixo 'clipes/'
-    if not lista:
-        try:
-            result = cloudinary.api.resources(type="upload", resource_type="video", prefix="clipes", max_results=100)
-            for item in result.get('resources', []):
-                pid = item.get('public_id', '')
-                url = item.get('secure_url')
-                if url and url not in seen_urls:
-                    nome_limpo = pid.split('/')[-1]
-                    lista.append((nome_limpo, url))
-                    seen_urls.add(url)
-        except Exception as e:
-            print(f"Aviso no prefixo clipes/: {e}")
-
-    # 3. Tenta buscar todos os vídeos da conta geral
-    if not lista:
-        try:
-            result_geral = cloudinary.api.resources(type="upload", resource_type="video", max_results=100)
-            for item in result_geral.get('resources', []):
-                pid = item.get('public_id', '')
-                url = item.get('secure_url')
-                if url and url not in seen_urls:
-                    nome_limpo = pid.split('/')[-1]
-                    lista.append((nome_limpo, url))
-                    seen_urls.add(url)
-        except Exception as e:
-            print(f"Erro ao buscar lista geral de vídeos: {e}")
-            
-    return lista
+        print(f"Erro ao obter lista de vídeos: {e}")
+        return []
 
 if st.session_state.nome is None:
     st.title("🎤 Portal do Prestador")
@@ -123,7 +88,7 @@ else:
     
     url_status = f"{BASE_URL}/status_{st.session_state.slug}.json"
     
-    # Seção dedicada à Playlist de Vídeos Clipes
+    # Seção dedicada à Playlist de Vídeos Clipes com Pesquisa Global
     st.subheader("🎬 Playlist de Vídeos Clipes (Fundo da TV)")
     
     with st.container():
@@ -143,26 +108,8 @@ else:
         
         clipes_disponiveis = obter_lista_video_clipes()
         
-        # GARANTIA DE EXIBIÇÃO: Se a API falhar ou vier vazia, criamos uma lista base para o seletor nunca sumir da tela
-        if not clipes_disponiveis:
-            st.warning("⚠️ Cloudinary não retornou vídeos automaticamente. Insira o link direto do clipe abaixo ou use o campo de texto:")
-            clipe_manual_nome = st.text_input("Nome do Clipe:", "Vídeo Exemplo")
-            clipe_manual_url = st.text_input("URL Direta do Vídeo (.mp4):", "")
-            if st.button("🚀 Enviar Clipe Manual para Tela"):
-                if clipe_manual_url:
-                    requests.patch(url_status, json={
-                        "cantor": "VÍDEO CLIPE",
-                        "musica": clipe_manual_nome,
-                        "url_video": clipe_manual_url,
-                        "comando": "play"
-                    })
-                    st.success(f"Clipe '{clipe_manual_nome}' enviado com sucesso!")
-                    time.sleep(1)
-                    st.rerun()
-                else:
-                    st.error("Insira uma URL válida.")
-        else:
-            termo_pesquisa = st.text_input("🔍 Pesquisar clipe:", "").strip().lower()
+        if clipes_disponiveis:
+            termo_pesquisa = st.text_input("🔍 Pesquisar música/clipe na nuvem:", "").strip().lower()
             
             if termo_pesquisa:
                 clipes_filtrados = [c for c in clipes_disponiveis if termo_pesquisa in c[0].lower()]
@@ -189,6 +136,8 @@ else:
                             st.rerun()
             else:
                 st.warning(f"Nenhum clipe encontrado com o termo '{termo_pesquisa}'.")
+        else:
+            st.warning("Nenhum vídeo encontrado no Cloudinary.")
             
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -237,7 +186,7 @@ else:
         st.markdown("""
             <style>
                 .blink { animation: blinker 1s linear infinite; color: yellow; font-weight: bold; 
-                           background-color: rgba(255, 255, 0, 0.1); padding: 10px; border: 2px solid yellow; border-radius: 10px; }
+                         background-color: rgba(255, 255, 0, 0.1); padding: 10px; border: 2px solid yellow; border-radius: 10px; }
                 @keyframes blinker { 50% { opacity: 0; } }
             </style>
         """, unsafe_allow_html=True)
@@ -249,6 +198,6 @@ else:
                 st.rerun()
     else:
         st.success("Nenhum pedido manual pendente.")
-        
+          
     time.sleep(2)
     st.rerun()
