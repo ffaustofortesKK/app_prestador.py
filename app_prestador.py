@@ -20,7 +20,7 @@ if "slug" not in st.session_state: st.session_state.slug = None
 BASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
 
 def normalizar_nome(nome):
-    nome = nome.replace(".mp4", "").replace(".wmv", "").replace(".avi", "")
+    nome = nome.replace(".mp4", "").replace(".wmv", "").replace(".avi", "").replace(".MP4", "").replace(".WMV", "")
     nome = re.sub(r'["\'()\[\]]', '', nome)
     nome = unicodedata.normalize('NFKD', nome).encode('ASCII', 'ignore').decode('utf-8')
     nome = re.sub(r'[^\w\s]', '', nome)
@@ -28,33 +28,39 @@ def normalizar_nome(nome):
 
 def encontrar_link_real(nome_base):
     try:
-        # Procura primeiro dentro da pasta 'clipes'
-        search_result = cloudinary.search.Search().expression('resource_type:video AND folder=clipes').max_results(500).execute()
-        for res in search_result.get('resources', []):
-            public_id = res.get('public_id', '').lower()
-            nome_arquivo = public_id.split('/')[-1]
-            if nome_base.lower() in nome_arquivo or nome_base.lower() in public_id:
-                return res.get('secure_url')
-    except Exception as e:
-        print(f"Erro ao procurar link real na pasta clipes: {e}")
-        
-    # Fallback para busca global caso não encontre na pasta específica
-    try:
+        # Busca global avançada por Search API em todas as pastas da nuvem (Karaokes, Clipes, etc.)
         search_result = cloudinary.search.Search().expression('resource_type:video').max_results(500).execute()
         for res in search_result.get('resources', []):
             public_id = res.get('public_id', '').lower()
             nome_arquivo = public_id.split('/')[-1]
-            if nome_base.lower() in nome_arquivo or nome_base.lower() in public_id:
+            
+            # Normaliza o nome do arquivo da nuvem para comparar sem falhas de caracteres especiais
+            nome_arquivo_limpo = normalizar_nome(nome_arquivo).lower()
+            nome_base_limpo = normalizar_nome(nome_base).lower()
+            
+            if nome_base_limpo in nome_arquivo_limpo or nome_arquivo_limpo in nome_base_limpo:
                 return res.get('secure_url')
     except Exception as e:
-        print(f"Erro no fallback geral: {e}")
+        print(f"Erro ao procurar link real via Search global: {e}")
+        
+    # Fallback clássico caso a Search API encontre barreiras
+    try:
+        all_res = cloudinary.api.resources(type="upload", resource_type="video", max_results=500)
+        for res in all_res.get('resources', []):
+            public_id = res.get('public_id', '').lower()
+            nome_arquivo = public_id.split('/')[-1]
+            if normalizar_nome(nome_base).lower() in normalizar_nome(nome_arquivo).lower():
+                return res.get('secure_url')
+    except Exception as e:
+        print(f"Erro no fallback clássico: {e}")
+        
     return None
 
 def obter_lista_video_clipes():
     lista = []
     seen_urls = set()
     try:
-        # Restringe a listagem exclusivamente à pasta 'clipes'
+        # Restringe a listagem da aba superior exclusivamente à pasta 'clipes'
         search_result = cloudinary.search.Search().expression('resource_type:video AND folder=clipes').max_results(500).execute()
         for item in search_result.get('resources', []):
             pid = item.get('public_id', '')
