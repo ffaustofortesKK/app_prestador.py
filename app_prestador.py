@@ -42,9 +42,9 @@ def obter_lista_video_clipes():
     lista = []
     seen_urls = set()
     
-    # 1. Tenta buscar estritamente da pasta 'clipes'
+    # 1. Tenta buscar especificamente utilizando a API de Asset Folders para a pasta "clipes"
     try:
-        result = cloudinary.api.resources(type="upload", resource_type="video", prefix="clipes/", max_results=500)
+        result = cloudinary.api.resources_by_asset_folder(asset_folder="clipes", resource_type="video", max_results=500)
         for item in result.get('resources', []):
             pid = item.get('public_id', '')
             url = item.get('secure_url')
@@ -53,9 +53,23 @@ def obter_lista_video_clipes():
                 lista.append((nome_limpo, url))
                 seen_urls.add(url)
     except Exception as e:
-        print(f"Erro ao obter com prefixo clipes/: {e}")
+        print(f"Aviso na busca por asset_folder: {e}")
 
-    # 2. Se a pasta clipes/ não retornar nada, busca todos os vídeos disponíveis na conta (Garante que nunca fica vazio)
+    # 2. Tenta por prefixo caso a estrutura use subdiretórios tradicionais
+    if not lista:
+        try:
+            result = cloudinary.api.resources(type="upload", resource_type="video", prefix="clipes/", max_results=500)
+            for item in result.get('resources', []):
+                pid = item.get('public_id', '')
+                url = item.get('secure_url')
+                if url and url not in seen_urls:
+                    nome_limpo = pid.split('/')[-1]
+                    lista.append((nome_limpo, url))
+                    seen_urls.add(url)
+        except Exception as e:
+            print(f"Aviso na busca por prefixo: {e}")
+
+    # 3. Fallback final: se ainda estiver vazio, busca todos os vídeos da conta para garantir que nada fica oculto
     if not lista:
         try:
             all_res = cloudinary.api.resources(type="upload", resource_type="video", max_results=500)
@@ -153,7 +167,7 @@ else:
             else:
                 st.warning(f"Nenhum vídeo encontrado com o termo '{termo_pesquisa}'.")
         else:
-            st.warning("⚠️ Nenhum vídeo encontrado na sua conta do Cloudinary. Verifique se carregou ficheiros de vídeo.")
+            st.warning("⚠️ Nenhum vídeo encontrado na pasta 'clipes' ou na sua conta Cloudinary.")
             
         st.markdown('</div>', unsafe_allow_html=True)
 
