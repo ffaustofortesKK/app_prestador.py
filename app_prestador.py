@@ -42,20 +42,23 @@ def obter_lista_video_clipes():
     lista = []
     seen_urls = set()
     
-    # 1. Tenta buscar pelo prefixo 'clipes/'
-    try:
-        result = cloudinary.api.resources(type="upload", resource_type="video", prefix="clipes/", max_results=500)
-        for item in result.get('resources', []):
-            pid = item.get('public_id', '')
-            url = item.get('secure_url')
-            if url and url not in seen_urls:
-                nome_limpo = pid.split('/')[-1]
-                lista.append((nome_limpo, url))
-                seen_urls.add(url)
-    except Exception as e:
-        print(f"Erro ao obter com prefixo clipes/: {e}")
+    # 1. Tenta buscar pelo prefixo 'clipes/' ou 'video_clipe/'
+    for prefixo in ["clipes/", "video_clipe/", "videoclipes/"]:
+        try:
+            result = cloudinary.api.resources(type="upload", resource_type="video", prefix=prefixo, max_results=500)
+            for item in result.get('resources', []):
+                pid = item.get('public_id', '')
+                url = item.get('secure_url')
+                if url and url not in seen_urls:
+                    nome_limpo = pid.split('/')[-1]
+                    lista.append((nome_limpo, url))
+                    seen_urls.add(url)
+        except Exception as e:
+            print(f"Erro ao obter com prefixo {prefixo}: {e}")
+        if lista:
+            break
 
-    # 2. Se a listagem por prefixo vier vazia, puxa todos os vídeos da conta para nunca falhar
+    # 2. Se a listagem por prefixo específico vier vazia, puxa todos os vídeos da conta para nunca falhar a listagem
     if not lista:
         try:
             result = cloudinary.api.resources(type="upload", resource_type="video", max_results=500)
