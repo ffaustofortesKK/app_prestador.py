@@ -20,44 +20,50 @@ if "slug" not in st.session_state: st.session_state.slug = None
 BASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
 
 def normalizar_nome(nome):
-    # Remove extensões e caracteres corrompidos/especiais comuns
-    nome = nome.lower()
+    nome = str(nome).lower()
     for ext in [".mp4", ".wmv", ".avi", ".MP4", ".WMV", ".AVI"]:
         nome = nome.replace(ext, "")
-    
-    # Substitui caracteres problemáticos específicos e limpa acentos
-    nome = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', nome) # Remove caracteres de controle invisíveis
+    nome = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', nome)
     nome = unicodedata.normalize('NFKD', nome).encode('ASCII', 'ignore').decode('utf-8')
     nome = re.sub(r'[^\w\s]', ' ', nome)
     return " ".join(nome.split())
 
 def encontrar_link_real(nome_base):
     nome_base_limpo = normalizar_nome(nome_base)
+    # Extrai palavras significativas (com mais de 2 letras) para busca flexível
+    palavras_chave = [p for p in nome_base_limpo.split() if len(p) > 2]
     
     try:
-        # Busca global por Search API em todas as pastas
+        # Busca global irrestrita em toda a conta (raiz e subpastas como 'clipes' e 'MÚSICAS DE KARAOKE')
         search_result = cloudinary.search.Search().expression('resource_type:video').max_results(500).execute()
         for res in search_result.get('resources', []):
             public_id = res.get('public_id', '')
             nome_arquivo = public_id.split('/')[-1]
             nome_arquivo_limpo = normalizar_nome(nome_arquivo)
             
-            # Compara se os termos principais coincidem
+            # 1. Correspondência direta por inclusão
             if nome_base_limpo in nome_arquivo_limpo or nome_arquivo_limpo in nome_base_limpo:
+                return res.get('secure_url')
+                
+            # 2. Correspondência por cruzamento de palavras-chave essenciais
+            if palavras_chave and sum(1 for palavra in palavras_chave if palavra in nome_arquivo_limpo) >= max(1, len(palavras_chave) // 2):
                 return res.get('secure_url')
     except Exception as e:
         print(f"Erro na busca global Search API: {e}")
         
-    # Fallback clássico para garantir varredura total caso a Search API falhe
+    # Fallback exaustivo por api.resources caso o Search precise de empurrão
     try:
-        all_res = cloudinary.api.resources(type="upload", resource_type="video", max_results=500)
+        all_res = cloudinary.api.resources(type="upload", resource_type="video", max_results=500, prefix="")
         for res in all_res.get('resources', []):
             public_id = res.get('public_id', '')
             nome_arquivo = public_id.split('/')[-1]
-            if nome_base_limpo in normalizar_nome(nome_arquivo) or normalizar_nome(nome_arquivo) in nome_base_limpo:
+            nome_arquivo_limpo = normalizar_nome(nome_arquivo)
+            if nome_base_limpo in nome_arquivo_limpo or nome_arquivo_limpo in nome_base_limpo:
+                return res.get('secure_url')
+            if palavras_chave and sum(1 for palavra in palavras_chave if palavra in nome_arquivo_limpo) >= max(1, len(palavras_chave) // 2):
                 return res.get('secure_url')
     except Exception as e:
-        print(f"Erro no fallback clássico: {e}")
+        print(f"Erro no fallback exaustivo: {e}")
         
     return None
 
