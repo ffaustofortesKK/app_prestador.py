@@ -92,12 +92,15 @@ else:
                 
                 if col3.button("🎤", key=f"start_{p_id}"):
                     link = encontrar_link_real(normalizar_nome(p.get('musica')))
+                    # Usa PUT para reescrever completamente o status atual, forçando a TV a interromper qualquer vídeo anterior e assumir o novo comando
                     requests.put(url_status, json={
                         "cantor": p.get('cantor'), 
                         "musica": p.get('musica'), 
                         "url_video": link, 
                         "comando": "aguardando_play" 
                     })
+                    # Opcional: remove da fila automaticamente ao ser chamado para cantar
+                    requests.delete(f"{BASE_URL}/pedidos_{st.session_state.slug}/{p_id}.json")
                     st.rerun()
         
         st.markdown("---")
