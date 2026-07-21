@@ -42,13 +42,9 @@ def obter_lista_video_clipes():
     lista = []
     seen_urls = set()
     
-    # 1. Tenta buscar via Cloudinary Search API na pasta 'clipes'
+    # Tentativas automáticas no Cloudinary
     try:
-        search_result = cloudinary.search.Search()\
-            .expression('folder=clipes AND resource_type:video')\
-            .max_results(100)\
-            .execute()
-        
+        search_result = cloudinary.search.Search().expression('resource_type:video').max_results(100).execute()
         for item in search_result.get('resources', []):
             pid = item.get('public_id', '')
             url = item.get('secure_url')
@@ -57,12 +53,11 @@ def obter_lista_video_clipes():
                 lista.append((nome_limpo, url))
                 seen_urls.add(url)
     except Exception as e:
-        print(f"Aviso na Search API (clipes): {e}")
+        print(f"Erro na busca: {e}")
 
-    # 2. Se a pasta 'clipes' vier vazia, tenta prefixo 'clipes/'
     if not lista:
         try:
-            result = cloudinary.api.resources(type="upload", resource_type="video", prefix="clipes", max_results=100)
+            result = cloudinary.api.resources(type="upload", resource_type="video", max_results=100)
             for item in result.get('resources', []):
                 pid = item.get('public_id', '')
                 url = item.get('secure_url')
@@ -71,22 +66,8 @@ def obter_lista_video_clipes():
                     lista.append((nome_limpo, url))
                     seen_urls.add(url)
         except Exception as e:
-            print(f"Aviso no prefixo clipes/: {e}")
+            print(f"Erro na API resources: {e}")
 
-    # 3. SEGURANÇA: Se ainda estiver vazio, traz todos os vídeos da conta para o painel nunca falhar
-    if not lista:
-        try:
-            result_geral = cloudinary.api.resources(type="upload", resource_type="video", max_results=100)
-            for item in result_geral.get('resources', []):
-                pid = item.get('public_id', '')
-                url = item.get('secure_url')
-                if url and url not in seen_urls:
-                    nome_limpo = pid.split('/')[-1]
-                    lista.append((nome_limpo, url))
-                    seen_urls.add(url)
-        except Exception as e:
-            print(f"Erro ao buscar lista geral de vídeos: {e}")
-            
     return lista
 
 if st.session_state.nome is None:
@@ -143,7 +124,25 @@ else:
         
         clipes_disponiveis = obter_lista_video_clipes()
         
-        if clipes_disponiveis:
+        # Fallback de segurança caso a API venha totalmente vazia por restrição da conta
+        if not clipes_disponiveis:
+            st.info("💡 Modo de inserção manual ativo (API do Cloudinary não retornou itens automaticamente). Insira o link direto do vídeo do Cloudinary abaixo:")
+            link_manual = st.text_input("URL Direta do Vídeo (.mp4):", "")
+            nome_manual = st.text_input("Nome do Clipe:", "Vídeo de Fundo")
+            if st.button("🚀 Enviar Vídeo Manual para a TV"):
+                if link_manual:
+                    requests.patch(url_status, json={
+                        "cantor": "VÍDEO CLIPE",
+                        "musica": nome_manual,
+                        "url_video": link_manual,
+                        "comando": "play"
+                    })
+                    st.success("Vídeo enviado com sucesso para a TV!")
+                    time.sleep(1)
+                    st.rerun()
+                else:
+                    st.error("Insira um link válido.")
+        else:
             termo_pesquisa = st.text_input("🔍 Pesquisar clipe:", "").strip().lower()
             
             if termo_pesquisa:
@@ -171,8 +170,6 @@ else:
                             st.rerun()
             else:
                 st.warning(f"Nenhum clipe encontrado com o termo '{termo_pesquisa}'.")
-        else:
-            st.warning("⚠️ Nenhum vídeo encontrado na sua conta Cloudinary. Verifique se carregou ficheiros de vídeo.")
             
         st.markdown('</div>', unsafe_allow_html=True)
 
