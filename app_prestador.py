@@ -28,11 +28,11 @@ def normalizar_nome(nome):
 
 def encontrar_link_real(nome_base):
     try:
-        resources = cloudinary.api.resources(type="upload", resource_type="video", prefix=f"video_clipes/{nome_base}", max_results=5)
+        resources = cloudinary.api.resources(type="upload", resource_type="video", prefix=f"clipes/{nome_base}", max_results=5)
         if resources.get('resources'):
             return resources['resources'][0]['secure_url']
         
-        all_res = cloudinary.api.resources(type="upload", resource_type="video", prefix="video_clipes", max_results=200)
+        all_res = cloudinary.api.resources(type="upload", resource_type="video", prefix="clipes", max_results=200)
         for res in all_res.get('resources', []):
             if nome_base.lower() in res.get('public_id', '').lower():
                 return res.get('secure_url')
@@ -43,7 +43,7 @@ def encontrar_link_real(nome_base):
 def obter_lista_video_clipes():
     try:
         search_result = cloudinary.search.Search()\
-            .expression('folder=video_clipes AND resource_type:video')\
+            .expression('folder=clipes AND resource_type:video')\
             .max_results(100)\
             .execute()
         lista = []
@@ -53,11 +53,12 @@ def obter_lista_video_clipes():
             lista.append((nome_limpo, item.get('secure_url')))
         
         if not lista:
-            result = cloudinary.api.resources(type="upload", resource_type="video", prefix="video_clipes", max_results=100)
+            result = cloudinary.api.resources(type="upload", resource_type="video", prefix="clipes", max_results=100)
             for item in result.get('resources', []):
                 pid = item.get('public_id', '')
                 nome_limpo = pid.split('/')[-1]
                 lista.append((nome_limpo, item.get('secure_url')))
+                
         return lista
     except Exception:
         return []
@@ -117,8 +118,8 @@ else:
         clipes_disponiveis = obter_lista_video_clipes()
         
         if clipes_disponiveis:
-            # 🔍 Barra de Pesquisa de Vídeos Clipes na Nuvem
-            termo_pesquisa = st.text_input("🔍 Pesquisar música/vídeo na nuvem (Cloudinary):", "").strip().lower()
+            # 🔍 Barra de Pesquisa de Vídeos Clipes na Pasta 'clipes'
+            termo_pesquisa = st.text_input("🔍 Pesquisar música/clipe na pasta 'clipes' do Cloudinary:", "").strip().lower()
             
             if termo_pesquisa:
                 clipes_filtrados = [c for c in clipes_disponiveis if termo_pesquisa in c[0].lower()]
@@ -129,7 +130,7 @@ else:
                 nomes_clipes = [c[0] for c in clipes_filtrados]
                 col_p1, col_p2 = st.columns([3, 1])
                 with col_p1:
-                    clipe_escolhido = st.selectbox("Selecione um vídeo clipe para enviar à tela:", nomes_clipes, label_visibility="collapsed")
+                    clipe_escolhido = st.selectbox("Selecione o clipe encontrado:", nomes_clipes, label_visibility="collapsed")
                 with col_p2:
                     if st.button("🚀 Enviar Clipe para Tela"):
                         url_selecionada = next((c[1] for c in clipes_filtrados if c[0] == clipe_escolhido), None)
@@ -144,9 +145,9 @@ else:
                             time.sleep(1)
                             st.rerun()
             else:
-                st.warning(f"Nenhum vídeo clipe encontrado com o termo '{termo_pesquisa}'.")
+                st.warning(f"Nenhum clipe encontrado com o termo '{termo_pesquisa}'.")
         else:
-            st.warning("Nenhum vídeo clipe encontrado na pasta 'video_clipes' do Cloudinary.")
+            st.warning("Nenhum vídeo clipe encontrado na pasta 'clipes' do Cloudinary.")
             
         st.markdown('</div>', unsafe_allow_html=True)
 
