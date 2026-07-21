@@ -40,38 +40,23 @@ def encontrar_link_real(nome_base):
 def obter_lista_video_clipes():
     lista = []
     seen_urls = set()
-    
-    # Testa os prefixos mais comuns gerados pelo Cloudinary DAM para pastas
-    prefixes_to_try = ["clipes/", "clipes"]
-    
-    for pfx in prefixes_to_try:
-        try:
-            result = cloudinary.api.resources(type="upload", resource_type="video", prefix=pfx, max_results=100)
-            for item in result.get('resources', []):
-                pid = item.get('public_id', '')
-                url = item.get('secure_url')
+    try:
+        # Pede os recursos com o prefixo 'clipes/' para focar na pasta do DAM
+        result = cloudinary.api.resources(type="upload", resource_type="video", prefix="clipes/", max_results=500)
+        for item in result.get('resources', []):
+            pid = item.get('public_id', '')
+            url = item.get('secure_url')
+            
+            # Garante rigorosamente que o vídeo está dentro da pasta 'clipes' 
+            # (ou seja, o public_id começa por 'clipes/' e tem exatamente um nível de pasta)
+            partes = pid.split('/')
+            if len(partes) == 2 and partes[0].lower() == 'clipes':
                 if url and url not in seen_urls:
-                    # Limpa o prefixo do nome para exibição amigável
-                    nome_limpo = pid.replace("clipes/", "").split('/')[-1]
+                    nome_limpo = partes[1]
                     lista.append((nome_limpo, url))
                     seen_urls.add(url)
-        except Exception as e:
-            print(f"Tentativa com prefixo {pfx} falhou: {e}")
-            
-    # Fallback geral caso a estrutura do DAM exija uma listagem ampla de vídeos na conta
-    if not lista:
-        try:
-            result_geral = cloudinary.api.resources(type="upload", resource_type="video", max_results=100)
-            for item in result_geral.get('resources', []):
-                pid = item.get('public_id', '')
-                url = item.get('secure_url')
-                if url and url not in seen_urls:
-                    nome_limpo = pid.split('/')[-1]
-                    lista.append((nome_limpo, url))
-                    seen_urls.add(url)
-        except Exception as e:
-            print(f"Erro no fallback geral: {e}")
-            
+    except Exception as e:
+        print(f"Erro ao obter lista de vídeos estritamente da pasta clipes: {e}")
     return lista
 
 if st.session_state.nome is None:
@@ -156,7 +141,7 @@ else:
             else:
                 st.warning(f"Nenhum clipe encontrado com o termo '{termo_pesquisa}' na pasta 'clipes'.")
         else:
-            st.warning("⚠️ Nenhum vídeo encontrado na pasta 'clipes' do Cloudinary. Verifique a pasta DAM.")
+            st.warning("⚠️ Nenhum vídeo encontrado especificamente dentro da pasta 'clipes' no Cloudinary.")
             
         st.markdown('</div>', unsafe_allow_html=True)
 
