@@ -30,28 +30,23 @@ def normalizar_nome(nome):
 
 def encontrar_link_real(nome_base):
     nome_base_limpo = normalizar_nome(nome_base)
-    # Extrai palavras significativas (com mais de 2 letras) para busca flexível
     palavras_chave = [p for p in nome_base_limpo.split() if len(p) > 2]
     
     try:
-        # Busca global irrestrita em toda a conta (raiz e subpastas como 'clipes' e 'MÚSICAS DE KARAOKE')
         search_result = cloudinary.search.Search().expression('resource_type:video').max_results(500).execute()
         for res in search_result.get('resources', []):
             public_id = res.get('public_id', '')
             nome_arquivo = public_id.split('/')[-1]
             nome_arquivo_limpo = normalizar_nome(nome_arquivo)
             
-            # 1. Correspondência direta por inclusão
             if nome_base_limpo in nome_arquivo_limpo or nome_arquivo_limpo in nome_base_limpo:
                 return res.get('secure_url')
                 
-            # 2. Correspondência por cruzamento de palavras-chave essenciais
             if palavras_chave and sum(1 for palavra in palavras_chave if palavra in nome_arquivo_limpo) >= max(1, len(palavras_chave) // 2):
                 return res.get('secure_url')
     except Exception as e:
         print(f"Erro na busca global Search API: {e}")
         
-    # Fallback exaustivo por api.resources caso o Search precise de empurrão
     try:
         all_res = cloudinary.api.resources(type="upload", resource_type="video", max_results=500, prefix="")
         for res in all_res.get('resources', []):
@@ -118,7 +113,7 @@ else:
     
     url_status = f"{BASE_URL}/status_{st.session_state.slug}.json"
     
-    st.subheader("🎬 Playlist de Vídeos Clipes (Pasta 'clipes')")
+    st.subheader("🎬 Playlist de Vídeos Clipes (Fundo Ambiente)")
     
     with st.container():
         st.markdown("""
@@ -193,7 +188,7 @@ else:
         st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown("---")
-    st.subheader("📋 Gestão de Fila")
+    st.subheader("📋 Gestão de Fila (Karaokes para Ecrã Grande)")
     
     pedidos_data = requests.get(f"{BASE_URL}/pedidos_{st.session_state.slug}.json").json() or {}
     
@@ -210,6 +205,7 @@ else:
                     link = encontrar_link_real(nome_musica)
                     
                     if link:
+                        # Envia com o comando aguardando_play para abrir em tela cheia na TV e retornar à fila ao terminar
                         requests.put(url_status, json={
                             "cantor": p.get('cantor'), 
                             "musica": nome_musica, 
