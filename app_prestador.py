@@ -28,16 +28,13 @@ def normalizar_nome(nome):
 
 def encontrar_link_real(nome_base):
     try:
-        # 1. Tenta procurar estritamente dentro da pasta 'clipes'
-        resources = cloudinary.api.resources(type="upload", resource_type="video", prefix=f"clipes/{nome_base}", max_results=5)
-        if resources.get('resources'):
-            return resources['resources'][0]['secure_url']
-        
-        # 2. Se não encontrar, faz uma busca global em toda a conta por correspondência de nome
+        # Busca global em toda a conta do Cloudinary por correspondência de nome
         all_res = cloudinary.api.resources(type="upload", resource_type="video", max_results=500)
         for res in all_res.get('resources', []):
             public_id = res.get('public_id', '').lower()
-            if nome_base.lower() in public_id:
+            # Remove o nome da pasta se houver, para comparar apenas o nome do ficheiro
+            nome_arquivo = public_id.split('/')[-1]
+            if nome_base.lower() in nome_arquivo or nome_base.lower() in public_id:
                 return res.get('secure_url')
     except Exception as e:
         print(f"Erro ao procurar link real: {e}")
@@ -45,25 +42,16 @@ def encontrar_link_real(nome_base):
 
 def obter_lista_video_clipes():
     try:
-        search_result = cloudinary.search.Search()\
-            .expression('resource_type:video')\
-            .max_results(100)\
-            .execute()
+        # Busca universal de todos os vídeos na conta (raiz e pastas)
+        result = cloudinary.api.resources(type="upload", resource_type="video", max_results=500)
         lista = []
-        for item in search_result.get('resources', []):
+        for item in result.get('resources', []):
             pid = item.get('public_id', '')
             nome_limpo = pid.split('/')[-1]
             lista.append((nome_limpo, item.get('secure_url')))
-        
-        if not lista:
-            result = cloudinary.api.resources(type="upload", resource_type="video", max_results=100)
-            for item in result.get('resources', []):
-                pid = item.get('public_id', '')
-                nome_limpo = pid.split('/')[-1]
-                lista.append((nome_limpo, item.get('secure_url')))
-                
         return lista
-    except Exception:
+    except Exception as e:
+        print(f"Erro ao obter lista de vídeos: {e}")
         return []
 
 if st.session_state.nome is None:
@@ -100,7 +88,7 @@ else:
     
     url_status = f"{BASE_URL}/status_{st.session_state.slug}.json"
     
-    # Seção dedicada à Playlist de Vídeos Clipes com Pesquisa na Nuvem
+    # Seção dedicada à Playlist de Vídeos Clipes com Pesquisa Global
     st.subheader("🎬 Playlist de Vídeos Clipes (Fundo da TV)")
     
     with st.container():
@@ -121,7 +109,7 @@ else:
         clipes_disponiveis = obter_lista_video_clipes()
         
         if clipes_disponiveis:
-            termo_pesquisa = st.text_input("🔍 Pesquisar música/clipe no Cloudinary:", "").strip().lower()
+            termo_pesquisa = st.text_input("🔍 Pesquisar música/clipe na nuvem:", "").strip().lower()
             
             if termo_pesquisa:
                 clipes_filtrados = [c for c in clipes_disponiveis if termo_pesquisa in c[0].lower()]
