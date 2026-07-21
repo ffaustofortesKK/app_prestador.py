@@ -153,7 +153,7 @@ else:
         st.markdown("""
             <style>
                 .blink { animation: blinker 1s linear infinite; color: yellow; font-weight: bold; 
-                       background-color: rgba(255, 255, 0, 0.1); padding: 10px; border: 2px solid yellow; border-radius: 10px; }
+                         background-color: rgba(255, 255, 0, 0.1); padding: 10px; border: 2px solid yellow; border-radius: 10px; }
                 @keyframes blinker { 50% { opacity: 0; } }
             </style>
         """, unsafe_allow_html=True)
