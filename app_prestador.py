@@ -20,7 +20,7 @@ if "slug" not in st.session_state: st.session_state.slug = None
 BASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
 
 def normalizar_nome(nome):
-    nome = nome.replace(".mp4", "").replace(".wmv", "").replace(".avi", "")
+    nome = nome.replace(".mp4", "")
     nome = re.sub(r'["\'()\[\]]', '', nome)
     nome = unicodedata.normalize('NFKD', nome).encode('ASCII', 'ignore').decode('utf-8')
     nome = re.sub(r'[^\w\s]', '', nome)
@@ -28,43 +28,49 @@ def normalizar_nome(nome):
 
 def encontrar_link_real(nome_base):
     try:
-        # Procura primeiro dentro da pasta 'clipes'
-        search_result = cloudinary.search.Search().expression('resource_type:video AND folder=clipes').max_results(500).execute()
-        for res in search_result.get('resources', []):
+        all_res = cloudinary.api.resources(type="upload", resource_type="video", max_results=500)
+        for res in all_res.get('resources', []):
             public_id = res.get('public_id', '').lower()
             nome_arquivo = public_id.split('/')[-1]
             if nome_base.lower() in nome_arquivo or nome_base.lower() in public_id:
                 return res.get('secure_url')
     except Exception as e:
-        print(f"Erro ao procurar link real na pasta clipes: {e}")
-        
-    # Fallback para busca global caso não encontre na pasta específica
-    try:
-        search_result = cloudinary.search.Search().expression('resource_type:video').max_results(500).execute()
-        for res in search_result.get('resources', []):
-            public_id = res.get('public_id', '').lower()
-            nome_arquivo = public_id.split('/')[-1]
-            if nome_base.lower() in nome_arquivo or nome_base.lower() in public_id:
-                return res.get('secure_url')
-    except Exception as e:
-        print(f"Erro no fallback geral: {e}")
+        print(f"Erro ao procurar link real: {e}")
     return None
 
 def obter_lista_video_clipes():
     lista = []
     seen_urls = set()
-    try:
-        # Restringe a listagem exclusivamente à pasta 'clipes'
-        search_result = cloudinary.search.Search().expression('resource_type:video AND folder=clipes').max_results(500).execute()
-        for item in search_result.get('resources', []):
-            pid = item.get('public_id', '')
-            url = item.get('secure_url')
-            if url and url not in seen_urls:
-                nome_limpo = pid.split('/')[-1]
-                lista.append((nome_limpo, url))
-                seen_urls.add(url)
-    except Exception as e:
-        print(f"Erro ao buscar vídeos da pasta clipes: {e}")
+    
+    # 1. Tenta buscar pelo prefixo 'clipes/' ou 'video_clipe/'
+    for prefixo in ["clipes/", "video_clipe/", "videoclipes/"]:
+        try:
+            result = cloudinary.api.resources(type="upload", resource_type="video", prefix=prefixo, max_results=500)
+            for item in result.get('resources', []):
+                pid = item.get('public_id', '')
+                url = item.get('secure_url')
+                if url and url not in seen_urls:
+                    nome_limpo = pid.split('/')[-1]
+                    lista.append((nome_limpo, url))
+                    seen_urls.add(url)
+        except Exception as e:
+            print(f"Erro ao obter com prefixo {prefixo}: {e}")
+        if lista:
+            break
+
+    # 2. Se a listagem por prefixo específico vier vazia, puxa todos os vídeos da conta para nunca falhar a listagem
+    if not lista:
+        try:
+            result = cloudinary.api.resources(type="upload", resource_type="video", max_results=500)
+            for item in result.get('resources', []):
+                pid = item.get('public_id', '')
+                url = item.get('secure_url')
+                if url and url not in seen_urls:
+                    nome_limpo = pid.split('/')[-1]
+                    lista.append((nome_limpo, url))
+                    seen_urls.add(url)
+        except Exception as e:
+            print(f"Erro ao listar vídeos gerais: {e}")
             
     return lista
 
@@ -102,7 +108,7 @@ else:
     
     url_status = f"{BASE_URL}/status_{st.session_state.slug}.json"
     
-    st.subheader("🎬 Playlist de Vídeos Clipes (Pasta 'clipes')")
+    st.subheader("🎬 Playlist de Vídeos Clipes (Fundo da TV)")
     
     with st.container():
         st.markdown("""
@@ -122,7 +128,7 @@ else:
         clipes_disponiveis = obter_lista_video_clipes()
         
         if clipes_disponiveis:
-            termo_pesquisa = st.text_input("🔍 Pesquisar clipe na pasta 'clipes':", "").strip().lower()
+            termo_pesquisa = st.text_input("🔍 Pesquisar clipe na pasta:", "").strip().lower()
             
             if termo_pesquisa:
                 clipes_filtrados = [c for c in clipes_disponiveis if termo_pesquisa in c[0].lower()]
@@ -148,32 +154,10 @@ else:
                             time.sleep(1)
                             st.rerun()
             else:
-                st.warning(f"Nenhum clipe encontrado com o termo '{termo_pesquisa}' na pasta 'clipes'.")
+                st.warning(f"Nenhum clipe encontrado com o termo '{termo_pesquisa}'.")
         else:
-            st.warning("⚠️ Nenhum vídeo encontrado na pasta 'clipes'. Utilize a opção manual abaixo se necessário:")
+            st.warning("⚠️ Nenhum vídeo encontrado na conta Cloudinary. Verifique se existem vídeos carregados.")
             
-        st.markdown("---")
-        st.markdown("⚡ **Seleção Manual (Nome do arquivo exato):**")
-        col_m1, col_m2 = st.columns([3, 1])
-        with col_m1:
-            nome_manual = st.text_input("Nome do ficheiro (ex: nome_do_video.mp4):", key="input_manual_clipe")
-        with col_m2:
-            if st.button("🚀 Enviar Manual"):
-                if nome_manual:
-                    link_encontrado = encontrar_link_real(normalizar_nome(nome_manual))
-                    if link_encontrado:
-                        requests.patch(url_status, json={
-                            "cantor": "VÍDEO CLIPE",
-                            "musica": nome_manual,
-                            "url_video": link_encontrado,
-                            "comando": "clipe"
-                        })
-                        st.success(f"Clipe '{nome_manual}' enviado com sucesso!")
-                        time.sleep(1)
-                        st.rerun()
-                    else:
-                        st.error("❌ Vídeo não encontrado no Cloudinary com esse nome.")
-
         st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown("---")
