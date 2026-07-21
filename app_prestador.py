@@ -28,13 +28,8 @@ def normalizar_nome(nome):
 
 def encontrar_link_real(nome_base):
     try:
-        # Pesquisa estrita dentro da pasta 'clipes' do Cloudinary
-        resources = cloudinary.api.resources(type="upload", resource_type="video", prefix=f"clipes/{nome_base}", max_results=5)
-        if resources.get('resources'):
-            return resources['resources'][0]['secure_url']
-        
-        # Fallback de busca caso o nome exato não dê match por prefixo direto
-        all_res = cloudinary.api.resources(type="upload", resource_type="video", prefix="clipes", max_results=500)
+        # Busca global para encontrar músicas pedidas na fila (caso estejam na raiz ou pastas)
+        all_res = cloudinary.api.resources(type="upload", resource_type="video", max_results=500)
         for res in all_res.get('resources', []):
             public_id = res.get('public_id', '').lower()
             nome_arquivo = public_id.split('/')[-1]
@@ -46,13 +41,28 @@ def encontrar_link_real(nome_base):
 
 def obter_lista_video_clipes():
     try:
-        # Busca restrita apenas aos vídeos dentro da pasta 'clipes'
-        result = cloudinary.api.resources(type="upload", resource_type="video", prefix="clipes", max_results=500)
+        # 1. Tenta buscar via Cloudinary Search API especificamente na pasta 'clipes'
+        search_result = cloudinary.search.Search()\
+            .expression('folder=clipes AND resource_type:video')\
+            .max_results(100)\
+            .execute()
+        
         lista = []
-        for item in result.get('resources', []):
+        for item in search_result.get('resources', []):
             pid = item.get('public_id', '')
             nome_limpo = pid.split('/')[-1]
             lista.append((nome_limpo, item.get('secure_url')))
+        
+        # 2. Se a busca avançada vier vazia, tenta o método tradicional por prefixo na pasta 'clipes/'
+        if not lista:
+            result = cloudinary.api.resources(type="upload", resource_type="video", prefix="clipes", max_results=100)
+            for item in result.get('resources', []):
+                pid = item.get('public_id', '')
+                # Garante que o ficheiro pertence de facto à pasta clipes
+                if pid.startswith("clipes/"):
+                    nome_limpo = pid.split('/')[-1]
+                    lista.append((nome_limpo, item.get('secure_url')))
+                    
         return lista
     except Exception as e:
         print(f"Erro ao obter lista de vídeos da pasta clipes: {e}")
@@ -92,7 +102,7 @@ else:
     
     url_status = f"{BASE_URL}/status_{st.session_state.slug}.json"
     
-    # Seção dedicada à Playlist de Vídeos Clipes restrita à pasta 'clipes'
+    # Seção dedicada exclusivamente à Playlist de Vídeos Clipes na pasta 'clipes'
     st.subheader("🎬 Playlist de Vídeos Clipes (Fundo da TV)")
     
     with st.container():
@@ -113,7 +123,7 @@ else:
         clipes_disponiveis = obter_lista_video_clipes()
         
         if clipes_disponiveis:
-            termo_pesquisa = st.text_input("🔍 Pesquisar música/clipe na pasta 'clipes':", "").strip().lower()
+            termo_pesquisa = st.text_input("🔍 Pesquisar clipe na pasta 'clipes':", "").strip().lower()
             
             if termo_pesquisa:
                 clipes_filtrados = [c for c in clipes_disponiveis if termo_pesquisa in c[0].lower()]
@@ -141,7 +151,7 @@ else:
             else:
                 st.warning(f"Nenhum clipe encontrado com o termo '{termo_pesquisa}' na pasta 'clipes'.")
         else:
-            st.warning("Nenhum vídeo encontrado na pasta 'clipes' do Cloudinary.")
+            st.warning("⚠️ Nenhum vídeo encontrado especificamente dentro da pasta 'clipes' do Cloudinary. Certifique-se de que os ficheiros estão nessa pasta.")
             
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -172,7 +182,7 @@ else:
                         requests.delete(f"{BASE_URL}/pedidos_{st.session_state.slug}/{p_id}.json")
                         st.rerun()
                     else:
-                        st.error(f"❌ Vídeo '{nome_musica}' não foi encontrado na pasta 'clipes' do Cloudinary!")
+                        st.error(f"❌ Vídeo '{nome_musica}' não foi encontrado no Cloudinary! Verifique o nome.")
         
         st.markdown("---")
         if st.button("▶️ FORÇAR INÍCIO DE MÚSICA (IMEDIATO)"):
