@@ -42,7 +42,7 @@ def obter_lista_video_clipes():
     lista = []
     seen_urls = set()
     
-    # 1. Tenta buscar especificamente utilizando a API de Asset Folders para a pasta "clipes"
+    # 1. Tenta buscar por asset_folder
     try:
         result = cloudinary.api.resources_by_asset_folder(asset_folder="clipes", resource_type="video", max_results=500)
         for item in result.get('resources', []):
@@ -53,9 +53,9 @@ def obter_lista_video_clipes():
                 lista.append((nome_limpo, url))
                 seen_urls.add(url)
     except Exception as e:
-        print(f"Aviso na busca por asset_folder: {e}")
+        print(f"Aviso asset_folder: {e}")
 
-    # 2. Tenta por prefixo caso a estrutura use subdiretórios tradicionais
+    # 2. Tenta por prefixo clipes/
     if not lista:
         try:
             result = cloudinary.api.resources(type="upload", resource_type="video", prefix="clipes/", max_results=500)
@@ -67,9 +67,9 @@ def obter_lista_video_clipes():
                     lista.append((nome_limpo, url))
                     seen_urls.add(url)
         except Exception as e:
-            print(f"Aviso na busca por prefixo: {e}")
+            print(f"Aviso prefixo: {e}")
 
-    # 3. Fallback final: se ainda estiver vazio, busca todos os vídeos da conta para garantir que nada fica oculto
+    # 3. Tenta listar todos os vídeos gerais da conta
     if not lista:
         try:
             all_res = cloudinary.api.resources(type="upload", resource_type="video", max_results=500)
@@ -81,7 +81,7 @@ def obter_lista_video_clipes():
                     lista.append((nome_limpo, url))
                     seen_urls.add(url)
         except Exception as e:
-            print(f"Erro ao buscar todos os vídeos: {e}")
+            print(f"Erro geral: {e}")
             
     return lista
 
@@ -152,7 +152,7 @@ else:
                 with col_p1:
                     clipe_escolhido = st.selectbox("Selecione o clipe encontrado:", nomes_clipes, label_visibility="collapsed")
                 with col_p2:
-                    if st.button("🚀 Enviar Clipe para Tela"):
+                    if st.button("🚀 Enviar Clipe"):
                         url_selecionada = next((c[1] for c in clipes_filtrados if c[0] == clipe_escolhido), None)
                         if url_selecionada:
                             requests.patch(url_status, json={
@@ -161,13 +161,33 @@ else:
                                 "url_video": url_selecionada,
                                 "comando": "clipe"
                             })
-                            st.success(f"Clipe '{clipe_escolhido}' enviado com sucesso para a TV!")
+                            st.success(f"Clipe '{clipe_escolhido}' enviado com sucesso!")
                             time.sleep(1)
                             st.rerun()
-            else:
-                st.warning(f"Nenhum vídeo encontrado com o termo '{termo_pesquisa}'.")
-        else:
-            st.warning("⚠️ Nenhum vídeo encontrado na pasta 'clipes' ou na sua conta Cloudinary.")
+        
+        # Alternativa direta por link (caso a listagem automática falhe devido a permissões da API do Cloudinary)
+        st.markdown("---")
+        st.markdown("#### 🔗 Inserir Link Direto do Vídeo Clipe (Alternativa)")
+        col_m1, col_m2, col_m3 = st.columns([2, 2, 1])
+        with col_m1:
+            nome_manual = st.text_input("Nome do Vídeo:", placeholder="Ex: canta_brasil")
+        with col_m2:
+            url_manual = st.text_input("URL Direta (.mp4 do Cloudinary):", placeholder="https://res.cloudinary.com/...")
+        with col_m3:
+            st.markdown("<div style='height: 28px;'></div>", unsafe_allow_html=True)
+            if st.button("🚀 Enviar Link"):
+                if nome_manual and url_manual:
+                    requests.patch(url_status, json={
+                        "cantor": "VÍDEO CLIPE",
+                        "musica": nome_manual,
+                        "url_video": url_manual,
+                        "comando": "clipe"
+                    })
+                    st.success("Vídeo enviado com sucesso para a TV!")
+                    time.sleep(1)
+                    st.rerun()
+                else:
+                    st.error("Preencha o nome e o URL do vídeo.")
             
         st.markdown('</div>', unsafe_allow_html=True)
 
