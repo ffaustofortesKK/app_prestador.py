@@ -47,7 +47,6 @@ def obter_lista_video_clipes():
         result = cloudinary.api.resources(type="upload", resource_type="video", prefix="clipes/", max_results=500)
         for item in result.get('resources', []):
             pid = item.get('public_id', '')
-            # Garante que o ficheiro está diretamente na pasta 'clipes' (ex: clipes/nome_do_video)
             if pid.startswith("clipes/") and pid.count('/') == 1:
                 url = item.get('secure_url')
                 if url and url not in seen_urls:
@@ -150,7 +149,7 @@ else:
                                 "cantor": "VÍDEO CLIPE",
                                 "musica": clipe_escolhido,
                                 "url_video": url_selecionada,
-                                "comando": "play"
+                                "comando": "clipe"  # <--- ALTERADO DE 'play' PARA 'clipe' PARA NÃO DISPARAR TELA CHEIA NA TV
                             })
                             st.success(f"Clipe '{clipe_escolhido}' enviado com sucesso para a TV!")
                             time.sleep(1)
