@@ -41,6 +41,18 @@ def encontrar_link_real(nome_base):
         pass
     return None
 
+def obter_lista_video_clipes():
+    try:
+        result = cloudinary.api.resources(type="upload", resource_type="video", prefix="video_clipes", max_results=100)
+        lista = []
+        for item in result.get('resources', []):
+            pid = item.get('public_id', '')
+            nome_limpo = pid.split('/')[-1]
+            lista.append((nome_limpo, item.get('secure_url')))
+        return lista
+    except Exception:
+        return []
+
 if st.session_state.nome is None:
     st.title("🎤 Portal do Prestador")
     with st.form("login_form"):
@@ -74,6 +86,34 @@ else:
     qr = qrcode.make(url_cliente); buf = BytesIO(); qr.save(buf, format="PNG"); c2.image(buf.getvalue(), width=100)
     
     url_status = f"{BASE_URL}/status_{st.session_state.slug}.json"
+    
+    # Seção dedicada à Playlist de Vídeos Clipes no painel
+    st.subheader("🎬 Playlist de Vídeos Clipes (Fundo da TV)")
+    clipes_disponiveis = obter_lista_video_clipes()
+    
+    if clipes_disponiveis:
+        nomes_clipes = [c[0] for c in clipes_disponiveis]
+        
+        col_p1, col_p2 = st.columns([3, 1])
+        with col_p1:
+            clipe_escolhido = st.selectbox("Selecione um vídeo clipe para enviar à tela:", nomes_clipes, label_visibility="collapsed")
+        with col_p2:
+            if st.button("🚀 Enviar Clipe para Tela"):
+                url_selecionada = next((c[1] for c in clipes_disponiveis if c[0] == clipe_escolhido), None)
+                if url_selecionada:
+                    requests.patch(url_status, json={
+                        "cantor": "VÍDEO CLIPE",
+                        "musica": clipe_escolhido,
+                        "url_video": url_selecionada,
+                        "comando": "play"
+                    })
+                    st.success(f"Clipe '{clipe_escolhido}' enviado com sucesso para a TV!")
+                    time.sleep(1)
+                    st.rerun()
+    else:
+        st.warning("Nenhum vídeo clipe encontrado na pasta 'video_clipes' do Cloudinary.")
+
+    st.markdown("---")
     st.subheader("📋 Gestão de Fila")
     
     pedidos_data = requests.get(f"{BASE_URL}/pedidos_{st.session_state.slug}.json").json() or {}
