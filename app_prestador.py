@@ -73,7 +73,7 @@ def obter_lista_video_clipes():
         except Exception as e:
             print(f"Aviso no prefixo clipes/: {e}")
 
-    # 3. Tenta buscar todos os vídeos da conta geral
+    # 3. Fallback: Se ainda estiver vazio, busca todos os vídeos da conta para nunca deixar a tela em branco
     if not lista:
         try:
             result_geral = cloudinary.api.resources(type="upload", resource_type="video", max_results=100)
@@ -123,7 +123,6 @@ else:
     
     url_status = f"{BASE_URL}/status_{st.session_state.slug}.json"
     
-    # Seção dedicada à Playlist de Vídeos Clipes
     st.subheader("🎬 Playlist de Vídeos Clipes (Fundo da TV)")
     
     with st.container():
@@ -143,25 +142,7 @@ else:
         
         clipes_disponiveis = obter_lista_video_clipes()
         
-        # GARANTIA DE EXIBIÇÃO: Se a API falhar ou vier vazia, criamos uma lista base para o seletor nunca sumir da tela
-        if not clipes_disponiveis:
-            st.warning("⚠️ Cloudinary não retornou vídeos automaticamente. Insira o link direto do clipe abaixo ou use o campo de texto:")
-            clipe_manual_nome = st.text_input("Nome do Clipe:", "Vídeo Exemplo")
-            clipe_manual_url = st.text_input("URL Direta do Vídeo (.mp4):", "")
-            if st.button("🚀 Enviar Clipe Manual para Tela"):
-                if clipe_manual_url:
-                    requests.patch(url_status, json={
-                        "cantor": "VÍDEO CLIPE",
-                        "musica": clipe_manual_nome,
-                        "url_video": clipe_manual_url,
-                        "comando": "play"
-                    })
-                    st.success(f"Clipe '{clipe_manual_nome}' enviado com sucesso!")
-                    time.sleep(1)
-                    st.rerun()
-                else:
-                    st.error("Insira uma URL válida.")
-        else:
+        if clipes_disponiveis:
             termo_pesquisa = st.text_input("🔍 Pesquisar clipe:", "").strip().lower()
             
             if termo_pesquisa:
@@ -189,6 +170,8 @@ else:
                             st.rerun()
             else:
                 st.warning(f"Nenhum clipe encontrado com o termo '{termo_pesquisa}'.")
+        else:
+            st.warning("⚠️ Nenhum vídeo encontrado na conta Cloudinary. Verifique se os ficheiros de vídeo foram enviados corretamente.")
             
         st.markdown('</div>', unsafe_allow_html=True)
 
