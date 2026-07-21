@@ -20,36 +20,41 @@ if "slug" not in st.session_state: st.session_state.slug = None
 BASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
 
 def normalizar_nome(nome):
-    nome = nome.replace(".mp4", "").replace(".wmv", "").replace(".avi", "").replace(".MP4", "").replace(".WMV", "")
-    nome = re.sub(r'["\'()\[\]]', '', nome)
+    # Remove extensões e caracteres corrompidos/especiais comuns
+    nome = nome.lower()
+    for ext in [".mp4", ".wmv", ".avi", ".MP4", ".WMV", ".AVI"]:
+        nome = nome.replace(ext, "")
+    
+    # Substitui caracteres problemáticos específicos e limpa acentos
+    nome = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', nome) # Remove caracteres de controle invisíveis
     nome = unicodedata.normalize('NFKD', nome).encode('ASCII', 'ignore').decode('utf-8')
-    nome = re.sub(r'[^\w\s]', '', nome)
-    return "_".join(nome.split())
+    nome = re.sub(r'[^\w\s]', ' ', nome)
+    return " ".join(nome.split())
 
 def encontrar_link_real(nome_base):
+    nome_base_limpo = normalizar_nome(nome_base)
+    
     try:
-        # Busca global avançada por Search API em todas as pastas da nuvem (Karaokes, Clipes, etc.)
+        # Busca global por Search API em todas as pastas
         search_result = cloudinary.search.Search().expression('resource_type:video').max_results(500).execute()
         for res in search_result.get('resources', []):
-            public_id = res.get('public_id', '').lower()
+            public_id = res.get('public_id', '')
             nome_arquivo = public_id.split('/')[-1]
+            nome_arquivo_limpo = normalizar_nome(nome_arquivo)
             
-            # Normaliza o nome do arquivo da nuvem para comparar sem falhas de caracteres especiais
-            nome_arquivo_limpo = normalizar_nome(nome_arquivo).lower()
-            nome_base_limpo = normalizar_nome(nome_base).lower()
-            
+            # Compara se os termos principais coincidem
             if nome_base_limpo in nome_arquivo_limpo or nome_arquivo_limpo in nome_base_limpo:
                 return res.get('secure_url')
     except Exception as e:
-        print(f"Erro ao procurar link real via Search global: {e}")
+        print(f"Erro na busca global Search API: {e}")
         
-    # Fallback clássico caso a Search API encontre barreiras
+    # Fallback clássico para garantir varredura total caso a Search API falhe
     try:
         all_res = cloudinary.api.resources(type="upload", resource_type="video", max_results=500)
         for res in all_res.get('resources', []):
-            public_id = res.get('public_id', '').lower()
+            public_id = res.get('public_id', '')
             nome_arquivo = public_id.split('/')[-1]
-            if normalizar_nome(nome_base).lower() in normalizar_nome(nome_arquivo).lower():
+            if nome_base_limpo in normalizar_nome(nome_arquivo) or normalizar_nome(nome_arquivo) in nome_base_limpo:
                 return res.get('secure_url')
     except Exception as e:
         print(f"Erro no fallback clássico: {e}")
@@ -60,7 +65,6 @@ def obter_lista_video_clipes():
     lista = []
     seen_urls = set()
     try:
-        # Restringe a listagem da aba superior exclusivamente à pasta 'clipes'
         search_result = cloudinary.search.Search().expression('resource_type:video AND folder=clipes').max_results(500).execute()
         for item in search_result.get('resources', []):
             pid = item.get('public_id', '')
@@ -166,7 +170,7 @@ else:
         with col_m2:
             if st.button("🚀 Enviar Manual"):
                 if nome_manual:
-                    link_encontrado = encontrar_link_real(normalizar_nome(nome_manual))
+                    link_encontrado = encontrar_link_real(nome_manual)
                     if link_encontrado:
                         requests.patch(url_status, json={
                             "cantor": "VÍDEO CLIPE",
@@ -197,7 +201,7 @@ else:
                 
                 if col3.button("🎤", key=f"start_{p_id}"):
                     nome_musica = p.get('musica')
-                    link = encontrar_link_real(normalizar_nome(nome_musica))
+                    link = encontrar_link_real(nome_musica)
                     
                     if link:
                         requests.put(url_status, json={
