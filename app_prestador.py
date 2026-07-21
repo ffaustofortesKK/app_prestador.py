@@ -55,9 +55,14 @@ def obter_lista_video_clipes():
     lista = []
     seen_urls = set()
     try:
-        # Restringe a listagem exclusivamente à pasta 'clipes' do Cloudinary
-        search_result = cloudinary.search.Search().expression('resource_type:video AND folder=clipes').max_results(500).execute()
-        for item in search_result.get('resources', []):
+        # Método direto via Admin API filtrando pela pasta 'clipes'
+        result = cloudinary.api.resources(
+            type="upload",
+            resource_type="video",
+            prefix="clipes/",
+            max_results=500
+        )
+        for item in result.get('resources', []):
             pid = item.get('public_id', '')
             url = item.get('secure_url')
             if url and url not in seen_urls:
@@ -65,7 +70,21 @@ def obter_lista_video_clipes():
                 lista.append((nome_limpo, url))
                 seen_urls.add(url)
     except Exception as e:
-        print(f"Erro ao buscar vídeos da pasta clipes: {e}")
+        print(f"Erro ao buscar vídeos da pasta clipes via Admin API: {e}")
+        
+    # Fallback caso o prefixo exato venha diferente
+    if not lista:
+        try:
+            result_geral = cloudinary.api.resources(type="upload", resource_type="video", max_results=500)
+            for item in result_geral.get('resources', []):
+                pid = item.get('public_id', '')
+                url = item.get('secure_url')
+                if 'clipes' in pid.lower() and url and url not in seen_urls:
+                    nome_limpo = pid.split('/')[-1]
+                    lista.append((nome_limpo, url))
+                    seen_urls.add(url)
+        except Exception as e:
+            print(f"Erro no fallback de listagem: {e}")
             
     return lista
 
