@@ -41,24 +41,18 @@ def encontrar_link_real(nome_base):
 def obter_lista_video_clipes():
     lista = []
     seen_urls = set()
-    
-    # Procura especificamente na pasta 'clipes' que aparece na tua imagem e variações
-    prefixos = ["clipes/", "clipes", "video_clipe/", "videoclipes/", ""]
-    for prefixo in prefixos:
-        try:
-            kwargs = {"type": "upload", "resource_type": "video", "max_results": 500}
-            if prefixo:
-                kwargs["prefix"] = prefixo
-            result = cloudinary.api.resources(**kwargs)
-            for item in result.get('resources', []):
-                pid = item.get('public_id', '')
-                url = item.get('secure_url')
-                if url and url not in seen_urls:
-                    nome_limpo = pid.split('/')[-1]
-                    lista.append((nome_limpo, url))
-                    seen_urls.add(url)
-        except Exception as e:
-            print(f"Erro ao obter com prefixo '{prefixo}': {e}")
+    try:
+        # Puxa absolutamente todos os vídeos da conta Cloudinary de forma global
+        result = cloudinary.api.resources(type="upload", resource_type="video", max_results=500)
+        for item in result.get('resources', []):
+            pid = item.get('public_id', '')
+            url = item.get('secure_url')
+            if url and url not in seen_urls:
+                nome_limpo = pid.split('/')[-1]
+                lista.append((nome_limpo, url))
+                seen_urls.add(url)
+    except Exception as e:
+        print(f"Erro ao listar vídeos gerais do Cloudinary: {e}")
             
     return lista
 
@@ -116,7 +110,7 @@ else:
         clipes_disponiveis = obter_lista_video_clipes()
         
         if clipes_disponiveis:
-            termo_pesquisa = st.text_input("🔍 Pesquisar clipe na pasta:", "").strip().lower()
+            termo_pesquisa = st.text_input("🔍 Pesquisar clipe na lista:", "").strip().lower()
             
             if termo_pesquisa:
                 clipes_filtrados = [c for c in clipes_disponiveis if termo_pesquisa in c[0].lower()]
@@ -144,10 +138,10 @@ else:
             else:
                 st.warning(f"Nenhum clipe encontrado com o termo '{termo_pesquisa}'.")
         else:
-            st.warning("⚠️ Nenhum vídeo encontrado automaticamente.")
+            st.warning("⚠️ A listagem automática não encontrou vídeos. Utilize a opção manual abaixo:")
             
         st.markdown("---")
-        st.markdown("⚡ **Seleção Manual (Nome exato do ficheiro):**")
+        st.markdown("⚡ **Seleção Manual (Nome do arquivo exato):**")
         col_m1, col_m2 = st.columns([3, 1])
         with col_m1:
             nome_manual = st.text_input("Nome do ficheiro (ex: nome_do_video.mp4):", key="input_manual_clipe")
