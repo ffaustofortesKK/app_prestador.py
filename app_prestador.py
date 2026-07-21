@@ -42,8 +42,8 @@ def obter_lista_video_clipes():
     lista = []
     seen_urls = set()
     
-    # Tenta múltiplos prefixos e também a raiz global
-    prefixos = ["clipes/", "video_clipe/", "videoclipes/", ""]
+    # Procura especificamente na pasta 'clipes' que aparece na tua imagem e variações
+    prefixos = ["clipes/", "clipes", "video_clipe/", "videoclipes/", ""]
     for prefixo in prefixos:
         try:
             kwargs = {"type": "upload", "resource_type": "video", "max_results": 500}
@@ -142,14 +142,15 @@ else:
                             time.sleep(1)
                             st.rerun()
             else:
-                st.warning(f"Nenhum clipe encontrado com o termo '{termo_pesquisa}'. Tente pesquisar por outro nome.")
-        
-        # Bloco de segurança garantindo opção mesmo se a API falhar em listar automaticamente
+                st.warning(f"Nenhum clipe encontrado com o termo '{termo_pesquisa}'.")
+        else:
+            st.warning("⚠️ Nenhum vídeo encontrado automaticamente.")
+            
         st.markdown("---")
-        st.markdown("⚡ **Seleção Manual por Nome de Vídeo (Alternativa):**")
+        st.markdown("⚡ **Seleção Manual (Nome exato do ficheiro):**")
         col_m1, col_m2 = st.columns([3, 1])
         with col_m1:
-            nome_manual = st.text_input("Nome exato do ficheiro no Cloudinary (ex: video1.mp4):", key="input_manual_clipe")
+            nome_manual = st.text_input("Nome do ficheiro (ex: nome_do_video.mp4):", key="input_manual_clipe")
         with col_m2:
             if st.button("🚀 Enviar Manual"):
                 if nome_manual:
@@ -166,8 +167,6 @@ else:
                         st.rerun()
                     else:
                         st.error("❌ Vídeo não encontrado no Cloudinary com esse nome.")
-                else:
-                    st.warning("Insira um nome válido.")
 
         st.markdown('</div>', unsafe_allow_html=True)
 
