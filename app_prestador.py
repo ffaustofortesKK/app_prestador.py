@@ -28,11 +28,11 @@ def normalizar_nome(nome):
 
 def encontrar_link_real(nome_base):
     try:
-        result = cloudinary.api.resources(type="upload", resource_type="video", max_results=500)
+        result = cloudinary.api.resources(type="upload", resource_type="video", prefix="clipes/", max_results=500)
         for res in result.get('resources', []):
             public_id = res.get('public_id', '').lower()
             nome_arquivo = public_id.split('/')[-1]
-            if ('clipes' in public_id) and (nome_base.lower() in nome_arquivo or nome_base.lower() in public_id):
+            if nome_base.lower() in nome_arquivo or nome_base.lower() in public_id:
                 return res.get('secure_url')
     except Exception as e:
         print(f"Erro ao procurar link real: {e}")
@@ -43,14 +43,13 @@ def obter_lista_video_clipes():
     seen_urls = set()
     
     try:
-        # Puxa os recursos e filtra por segurança no Python para garantir que pertencem à pasta clipes
-        result = cloudinary.api.resources(type="upload", resource_type="video", max_results=500)
+        # Força a leitura direta da pasta 'clipes' que aparece na tua imagem
+        result = cloudinary.api.resources(type="upload", resource_type="video", prefix="clipes/", max_results=500)
         for item in result.get('resources', []):
             pid = item.get('public_id', '')
             url = item.get('secure_url')
             
-            # Verifica se o ficheiro está efetivamente dentro da pasta clipes (ex: clipes/video1)
-            if 'clipes' in pid.lower() and url and url not in seen_urls:
+            if url and url not in seen_urls:
                 nome_limpo = pid.split('/')[-1]
                 lista.append((nome_limpo, url))
                 seen_urls.add(url)
@@ -135,7 +134,7 @@ else:
                                 "url_video": url_selecionada,
                                 "comando": "clipe"
                             })
-                            st.success(f"Clipe '{clipe_escolhido}' enviado com sucesso para la TV!")
+                            st.success(f"Clipe '{clipe_escolhido}' enviado com sucesso para a TV!")
                             time.sleep(1)
                             st.rerun()
             else:
