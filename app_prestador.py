@@ -20,7 +20,7 @@ if "slug" not in st.session_state: st.session_state.slug = None
 BASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
 
 def normalizar_nome(nome):
-    nome = nome.replace(".mp4", "")
+    nome = nome.replace(".avi", "").replace(".mp4", "")
     nome = re.sub(r'["\'()\[\]]', '', nome)
     nome = unicodedata.normalize('NFKD', nome).encode('ASCII', 'ignore').decode('utf-8')
     nome = re.sub(r'[^\w\s]', '', nome)
@@ -29,11 +29,25 @@ def normalizar_nome(nome):
 def encontrar_link_real(nome_base):
     try:
         search_result = cloudinary.search.search().expression('resource_type:video').max_results(500).execute()
-        for res in search_result.get('resources', []):
+        resources = search_result.get('resources', [])
+        
+        # 1. Tentar correspondência exata ou parcial direta
+        for res in resources:
             public_id = res.get('public_id', '').lower()
             nome_arquivo = public_id.split('/')[-1]
             if nome_base.lower() in nome_arquivo or nome_base.lower() in public_id:
                 return res.get('secure_url')
+                
+        # 2. Tentar busca inteligente por palavras-chave se falhar a exata (ignora sufixos automáticos)
+        palavras_chave = [p for p in re.split(r'[_,\s-]', nome_base) if len(p) > 2]
+        if palavras_chave:
+            for res in resources:
+                public_id = res.get('public_id', '').lower()
+                # Se contiver pelo menos 2 palavras-chave principais ou a principal
+                matches = sum(1 for p in palavras_chave if p.lower() in public_id)
+                if matches >= min(2, len(palavras_chave)):
+                    return res.get('secure_url')
+                    
     except Exception as e:
         print(f"Erro ao procurar link real: {e}")
     return None
