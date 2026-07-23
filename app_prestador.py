@@ -206,13 +206,37 @@ else:
                         st.error(f"❌ Vídeo '{nome_musica}' não foi encontrado no Cloudinary!")
         
         st.markdown("---")
-        if st.button("▶️ FORÇAR INÍCIO DE MÚSICA (IMEDIATO)"):
-            requests.patch(url_status, json={"comando": "play"})
-            st.success("Comando de início imediato enviado para a TV!")
-            time.sleep(1)
-            st.rerun()
+        col_cmd1, col_cmd2 = st.columns(2)
+        with col_cmd1:
+            if st.button("▶️ FORÇAR INÍCIO DE MÚSICA (IMEDIATO)", use_container_width=True):
+                requests.patch(url_status, json={"comando": "play"})
+                st.success("Comando de início imediato enviado para a TV!")
+                time.sleep(1)
+                st.rerun()
+        with col_cmd2:
+            if st.button("⏹️ PARAR VÍDEO / ENCERRAR", use_container_width=True):
+                requests.put(url_status, json={
+                    "cantor": "",
+                    "musica": "",
+                    "url_video": "",
+                    "comando": "parar"
+                })
+                st.success("Comando para parar o vídeo enviado para a TV!")
+                time.sleep(1)
+                st.rerun()
     else:
         st.write("Fila vazia.")
+        # Opcional: Permitir parar a TV mesmo se a fila estiver vazia
+        if st.button("⏹️ PARAR VÍDEO / ENCERRAR TELA"):
+            requests.put(url_status, json={
+                "cantor": "",
+                "musica": "",
+                "url_video": "",
+                "comando": "parar"
+            })
+            st.success("Tela limpa/parada com sucesso!")
+            time.sleep(1)
+            st.rerun()
 
     st.markdown("---")
     st.subheader("⚠️ Pedidos Manuais (Atenção)")
