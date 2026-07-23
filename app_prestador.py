@@ -214,9 +214,14 @@ else:
                         st.error(f"❌ Vídeo '{nome_musica}' não foi encontrado no Cloudinary!")
         
         st.markdown("---")
-        if st.button("▶️ FORÇAR INÍCIO DE MÚSICA (IMEDIATO)"):
-            requests.patch(url_status, json={"comando": "play"})
-            st.success("Comando de início imediato enviado para a TV!")
+        if st.button("⏹️ STOP / PARAR VÍDEO (TELA)"):
+            requests.put(url_status, json={
+                "cantor": "",
+                "musica": "",
+                "url_video": "",
+                "comando": "stop"
+            })
+            st.success("Comando de stop enviado para a TV!")
             time.sleep(1)
             st.rerun()
     else:
