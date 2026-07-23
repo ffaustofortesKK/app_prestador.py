@@ -52,7 +52,7 @@ def obter_lista_video_clipes():
                 break
     except Exception as e:
         print(f"Erro ao obter vídeos via resources: {e}")
-          
+            
     return lista
 
 def encontrar_link_real(nome_musica):
@@ -171,7 +171,7 @@ else:
                 st.warning(f"Nenhum clipe encontrado com o termo '{termo_pesquisa}'.")
         else:
             st.warning("⚠️ Nenhum vídeo encontrado na conta Cloudinary.")
-          
+            
         st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown("---")
@@ -206,7 +206,7 @@ else:
                         st.error(f"❌ Vídeo '{nome_musica}' não foi encontrado no Cloudinary!")
         
         st.markdown("---")
-        # Botão de parar isolado em linha única (já que o botão de início imediato foi removido)
+        # Botão Parar / Encerrar isolado a ocupar a largura total ou ajustado
         if st.button("⏹️ PARAR VÍDEO / ENCERRAR", use_container_width=True):
             requests.put(url_status, json={
                 "cantor": "",
