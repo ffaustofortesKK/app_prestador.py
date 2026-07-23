@@ -52,7 +52,7 @@ def obter_lista_video_clipes():
                 break
     except Exception as e:
         print(f"Erro ao obter vídeos via resources: {e}")
-            
+          
     return lista
 
 def encontrar_link_real(nome_musica):
@@ -171,7 +171,7 @@ else:
                 st.warning(f"Nenhum clipe encontrado com o termo '{termo_pesquisa}'.")
         else:
             st.warning("⚠️ Nenhum vídeo encontrado na conta Cloudinary.")
-            
+          
         st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown("---")
@@ -206,27 +206,19 @@ else:
                         st.error(f"❌ Vídeo '{nome_musica}' não foi encontrado no Cloudinary!")
         
         st.markdown("---")
-        col_cmd1, col_cmd2 = st.columns(2)
-        with col_cmd1:
-            if st.button("▶️ FORÇAR INÍCIO DE MÚSICA (IMEDIATO)", use_container_width=True):
-                requests.patch(url_status, json={"comando": "play"})
-                st.success("Comando de início imediato enviado para a TV!")
-                time.sleep(1)
-                st.rerun()
-        with col_cmd2:
-            if st.button("⏹️ PARAR VÍDEO / ENCERRAR", use_container_width=True):
-                requests.put(url_status, json={
-                    "cantor": "",
-                    "musica": "",
-                    "url_video": "",
-                    "comando": "parar"
-                })
-                st.success("Comando para parar o vídeo enviado para a TV!")
-                time.sleep(1)
-                st.rerun()
+        # Botão de parar isolado em linha única (já que o botão de início imediato foi removido)
+        if st.button("⏹️ PARAR VÍDEO / ENCERRAR", use_container_width=True):
+            requests.put(url_status, json={
+                "cantor": "",
+                "musica": "",
+                "url_video": "",
+                "comando": "parar"
+            })
+            st.success("Comando para parar o vídeo enviado para a TV!")
+            time.sleep(1)
+            st.rerun()
     else:
         st.write("Fila vazia.")
-        # Opcional: Permitir parar a TV mesmo se a fila estiver vazia
         if st.button("⏹️ PARAR VÍDEO / ENCERRAR TELA"):
             requests.put(url_status, json={
                 "cantor": "",
