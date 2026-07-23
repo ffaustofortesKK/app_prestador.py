@@ -134,7 +134,7 @@ else:
     st.markdown("---")
     
     url_cliente = f"https://appcliente.streamlit.app/?prestador={st.session_state.slug}"
-    url_tv = f"https://ffktela.streamlit.app/?prestador={st.session_state.slug}"
+    url_tv = f"https://apptela.streamlit.app/?prestador={st.session_state.slug}"
     
     c1, c2 = st.columns([2, 1])
     c1.info(f"🔗 **Cliente:** {url_cliente}")
